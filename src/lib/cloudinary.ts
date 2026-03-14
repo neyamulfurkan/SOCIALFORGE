@@ -13,12 +13,15 @@ export async function generateUploadSignature(folder: string): Promise<{
   timestamp: number;
   cloudName: string;
   apiKey: string;
-folder: string;
+  folder: string;
+  uploadPreset: string;
 }> {
   const timestamp = Math.floor(Date.now() / 1000);
+  const uploadPreset = process.env.CLOUDINARY_UPLOAD_PRESET as string;
   const paramsToSign: Record<string, string | number> = {
     folder,
     timestamp,
+    upload_preset: uploadPreset,
   };
 
   const signature = cloudinary.utils.api_sign_request(
@@ -32,6 +35,7 @@ folder: string;
     cloudName: process.env.CLOUDINARY_CLOUD_NAME as string,
     apiKey: process.env.CLOUDINARY_API_KEY as string,
     folder,
+    uploadPreset,
   };
 }
 
