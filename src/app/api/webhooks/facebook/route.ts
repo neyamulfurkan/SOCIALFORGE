@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createHmac } from 'crypto';
 import { prisma } from '@/lib/db';
 import { redis } from '@/lib/redis';
-import { CACHE_TTL, AI_MODELS } from '@/lib/constants';
+import { CACHE_TTL, AI_MODELS, PAYMENT_METHOD_LABELS } from '@/lib/constants';
 import { getGroqKey } from '@/lib/platform-config';
 import { createGroq } from '@ai-sdk/groq';
 import { generateText } from 'ai';
@@ -47,7 +47,6 @@ function verifySignature(rawBody: string, signature: string): boolean {
   const expected =
     'sha256=' +
     createHmac('sha256', secret).update(rawBody).digest('hex');
-  // Constant-time comparison to prevent timing attacks
   if (signature.length !== expected.length) return false;
   let mismatch = 0;
   for (let i = 0; i < signature.length; i++) {
@@ -72,11 +71,148 @@ async function sendMessengerMessage(
   });
 }
 
+async function buildSystemPrompt(
+  businessConfig: Awaited<ReturnType<typeof prisma.businessConfig.findFirst>> & {
+    business: { name: string; slug: string };
+  },
+  businessId: string,
+): Promise<string> {
+  const storeName = businessConfig.business.name;
+  const storeSlug = businessConfig.business.slug;
+  const storeUrl = `${process.env.NEXTAUTH_URL ?? 'https://socialforge3.vercel.app'}/${storeSlug}`;
+
+  // Fetch all active products with variants
+  const products = await prisma.product.findMany({
+    where: { businessId, status: 'ACTIVE' },
+    include: { variants: true },
+    orderBy: { createdAt: 'desc' },
+    take: 50,
+  });
+
+  // Build product catalog section
+  const productLines = products.map((p) => {
+    const price = `৳${Number(p.price).toLocaleString()}`;
+    const compareAt = p.compareAtPrice
+      ? ` (was ৳${Number(p.compareAtPrice).toLocaleString()})`
+      : '';
+    const stock =
+      p.trackStock
+        ? p.stockQuantity > 0
+          ? ` — ${p.stockQuantity} in stock`
+          : ' — OUT OF STOCK'
+        : '';
+    const variants =
+      p.variants.length > 0
+        ? '\n    Variants: ' +
+          p.variants
+            .map((v) => {
+              const opts = Array.isArray(v.options)
+                ? (v.options as string[]).join(', ')
+                : JSON.stringify(v.options);
+              return `${v.name}: ${opts}`;
+            })
+            .join(' | ')
+        : '';
+    const desc = p.description ? `\n    Description: ${p.description}` : '';
+    const category = p.category ? `\n    Category: ${p.category}` : '';
+    const productUrl = `${storeUrl}/products/${p.slug}`;
+    return `• ${p.name} — ${price}${compareAt}${stock}${category}${desc}${variants}\n    Link: ${productUrl}`;
+  });
+
+  const catalogSection =
+    products.length > 0
+      ? `\n\nPRODUCT CATALOG (${products.length} products):\n${productLines.join('\n\n')}`
+      : '\n\nNo products are currently available in the store.';
+
+  // Build delivery section
+  const deliveryCharge = Number(businessConfig.deliveryCharge ?? 0);
+  const freeThreshold = businessConfig.freeDeliveryThreshold
+    ? Number(businessConfig.freeDeliveryThreshold)
+    : null;
+  const deliveryTime = businessConfig.deliveryTimeMessage ?? 'Contact us for delivery time.';
+
+  const deliverySection =
+    `\n\nDELIVERY INFORMATION:\n` +
+    `• Delivery charge: ৳${deliveryCharge}` +
+    (freeThreshold ? ` (FREE for orders above ৳${freeThreshold})` : '') +
+    `\n• Delivery time: ${deliveryTime}`;
+
+  // Build payment methods section
+  const paymentMethods: string[] = [];
+  if (businessConfig.cashOnDelivery) paymentMethods.push('Cash on Delivery (COD)');
+  if (businessConfig.bkashNumber) {
+    paymentMethods.push(
+      `bKash — Send to: ${businessConfig.bkashNumber}` +
+        (businessConfig.bkashInstructions
+          ? ` — Instructions: ${businessConfig.bkashInstructions}`
+          : ''),
+    );
+  }
+  if (businessConfig.nagadNumber) {
+    paymentMethods.push(
+      `Nagad — Send to: ${businessConfig.nagadNumber}` +
+        (businessConfig.nagadInstructions
+          ? ` — Instructions: ${businessConfig.nagadInstructions}`
+          : ''),
+    );
+  }
+  if (businessConfig.stripePublicKey) paymentMethods.push('Credit/Debit Card (Stripe)');
+
+  const paymentSection =
+    paymentMethods.length > 0
+      ? `\n\nPAYMENT METHODS:\n${paymentMethods.map((m) => `• ${m}`).join('\n')}`
+      : '\n\nPayment methods: Contact us for payment details.';
+
+  // Build knowledge base section
+  const knowledgeBase = businessConfig.knowledgeBase as Array<{
+    question: string;
+    answer: string;
+  }> | null;
+
+  const kbSection =
+    knowledgeBase && knowledgeBase.length > 0
+      ? `\n\nFREQUENTLY ASKED QUESTIONS:\n` +
+        knowledgeBase
+          .map((entry) => `Q: ${entry.question}\nA: ${entry.answer}`)
+          .join('\n\n')
+      : '';
+
+  // Get personality hint
+  const personality = businessConfig.chatbotPersonality ?? 'friendly';
+  const language = businessConfig.chatbotLanguage ?? 'en';
+
+  const personalityMap: Record<string, string> = {
+    friendly: 'You are warm, friendly, and approachable. Use a conversational tone.',
+    professional: 'You are professional, formal, and trustworthy. Be precise and helpful.',
+    playful: 'You are playful, fun, and energetic. Use emojis occasionally.',
+    minimal: 'You are direct and concise. Give short, clear answers.',
+  };
+
+  const personalityHint =
+    personalityMap[personality] ?? personalityMap.friendly;
+
+  return (
+    `You are the AI assistant for ${storeName}, an online store. ` +
+    `${personalityHint} ` +
+    `Reply in language: ${language}. ` +
+    `Keep replies concise for Messenger — avoid very long responses. ` +
+    `When a customer asks about a product, always include the price and product link. ` +
+    `When a customer wants to order, guide them to the store: ${storeUrl} ` +
+    `or ask for their: full name, phone number, delivery address, and preferred payment method. ` +
+    `Never make up products or prices — only use what is listed below. ` +
+    `If something is out of stock, say so clearly and suggest alternatives if available.` +
+    catalogSection +
+    deliverySection +
+    paymentSection +
+    kbSection +
+    `\n\nSTORE LINKS:\n• Homepage: ${storeUrl}\n• All products: ${storeUrl}/products`
+  );
+}
+
 async function processMessagingEvent(
   event: MessagingEvent,
   pageId: string,
 ): Promise<void> {
-  // Skip echoes, delivery receipts, and read receipts
   if (event.message?.is_echo) return;
   if (event.delivery || event.read) return;
   if (!event.message?.text) return;
@@ -92,6 +228,7 @@ async function processMessagingEvent(
   });
 
   if (!businessConfig || !businessConfig.facebookPageToken) return;
+  if (!businessConfig.messengerEnabled) return;
 
   const businessId = businessConfig.businessId;
 
@@ -100,32 +237,17 @@ async function processMessagingEvent(
   const sessionData: MessengerSession =
     (await redis.get<MessengerSession>(sessionKey)) ?? { messages: [] };
 
-  // Build context for AI — keep last 20 messages to avoid token overflow
+  // Keep last 20 messages for context
   const historyWindow = sessionData.messages.slice(-20);
   historyWindow.push({ role: 'user', content: messageText });
 
-  // Build system prompt from business config
-  const knowledgeBase = businessConfig.knowledgeBase as Array<{
-    question: string;
-    answer: string;
-  }> | null;
+  // Build full system prompt with all store data
+  const systemPrompt = await buildSystemPrompt(
+    businessConfig as typeof businessConfig & { business: { name: string; slug: string } },
+    businessId,
+  );
 
-  const kbSection =
-    knowledgeBase && knowledgeBase.length > 0
-      ? '\n\nKnowledge base:\n' +
-        knowledgeBase
-          .map((entry) => `Q: ${entry.question}\nA: ${entry.answer}`)
-          .join('\n\n')
-      : '';
-
-  const systemPrompt =
-    `You are a helpful assistant for ${businessConfig.business.name}. ` +
-    `Personality: ${businessConfig.chatbotPersonality}. ` +
-    `Reply in language: ${businessConfig.chatbotLanguage}. ` +
-    `Keep replies concise and helpful for a Messenger conversation.` +
-    kbSection;
-
-  // Fetch the Groq key and generate a reply
+  // Fetch Groq key and generate reply
   const groqKey = await getGroqKey('MESSENGER', businessId);
   const groq = createGroq({ apiKey: groqKey });
 
@@ -138,10 +260,10 @@ async function processMessagingEvent(
     })),
   });
 
-  // Send the reply via Facebook Send API
+  // Send reply via Facebook Send API
   await sendMessengerMessage(senderId, reply, businessConfig.facebookPageToken);
 
-  // Update session in Redis
+  // Update Redis session
   const updatedMessages = [
     ...historyWindow,
     { role: 'assistant', content: reply },
@@ -152,25 +274,25 @@ async function processMessagingEvent(
     JSON.stringify({ messages: updatedMessages }),
   );
 
-  // Upsert conversation record in DB
+  // Upsert conversation in DB
   const conversation = await prisma.messengerConversation.upsert({
     where: { businessId_senderId: { businessId, senderId } },
     update: {
       lastMessageAt: new Date(),
-      lastMessagePreview: reply.slice(0, 100),
+      lastMessagePreview: messageText.slice(0, 100),
       unreadCount: { increment: 1 },
     },
     create: {
       businessId,
       senderId,
       lastMessageAt: new Date(),
-      lastMessagePreview: reply.slice(0, 100),
+      lastMessagePreview: messageText.slice(0, 100),
       status: 'OPEN',
       unreadCount: 1,
     },
   });
 
-  // Persist the incoming customer message
+  // Save customer message
   await prisma.messengerMessage.create({
     data: {
       conversationId: conversation.id,
@@ -181,7 +303,7 @@ async function processMessagingEvent(
     },
   });
 
-  // Persist the bot reply
+  // Save bot reply
   await prisma.messengerMessage.create({
     data: {
       conversationId: conversation.id,
@@ -191,7 +313,7 @@ async function processMessagingEvent(
     },
   });
 
-  // Write activity log
+  // Activity log
   await prisma.activityLog.create({
     data: {
       businessId,
@@ -229,46 +351,40 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
 // ─────────────────────────────────────────────
 
 export async function POST(req: NextRequest): Promise<NextResponse> {
-  // 1. Read raw body for signature verification
   const rawBody = await req.text();
 
-  // 2. Verify HMAC-SHA256 signature before anything else
   const signature = req.headers.get('x-hub-signature-256') ?? '';
   if (!verifySignature(rawBody, signature)) {
     return NextResponse.json({ error: 'Invalid signature' }, { status: 403 });
   }
 
-  // 3. Process asynchronously using waitUntil so Vercel keeps the function alive
-  const { waitUntil } = await import('@vercel/functions');
-  waitUntil((async () => {
-    try {
-      const body = JSON.parse(rawBody) as WebhookBody;
+  try {
+    const body = JSON.parse(rawBody) as WebhookBody;
 
-      // Only process page messages
-      if (body.object !== 'page') return;
+    if (body.object !== 'page') {
+      return NextResponse.json({ status: 'ok' });
+    }
 
-      const entries = body.entry ?? [];
+    const entries = body.entry ?? [];
 
-      for (const entry of entries) {
-        const pageId = entry.id;
-        const messagingEvents = entry.messaging ?? [];
+    for (const entry of entries) {
+      const pageId = entry.id;
+      const messagingEvents = entry.messaging ?? [];
 
-        for (const event of messagingEvents) {
-          try {
-            await processMessagingEvent(event, pageId);
-          } catch (eventErr) {
-            // Log per-event errors but continue processing other events
-            console.error(
-              `Messenger webhook: error processing event from ${event.sender?.id}:`,
-              eventErr,
-            );
-          }
+      for (const event of messagingEvents) {
+        try {
+          await processMessagingEvent(event, pageId);
+        } catch (eventErr) {
+          console.error(
+            `Messenger webhook: error processing event from ${event.sender?.id}:`,
+            eventErr,
+          );
         }
       }
-    } catch (err) {
-      console.error('Messenger webhook: fatal processing error:', err);
     }
-  })());
+  } catch (err) {
+    console.error('Messenger webhook: fatal processing error:', err);
+  }
 
   return NextResponse.json({ status: 'ok' });
 }
