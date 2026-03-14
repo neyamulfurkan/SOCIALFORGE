@@ -1328,7 +1328,7 @@ function ApiKeysSection({ businessId }: { businessId: string }) {
   const [loaded, setLoaded] = useState(false);
 
   // Load existing key values on mount so fields are not blank after save
-  useState(() => {
+  useEffect(() => {
     if (loaded) return;
     setLoaded(true);
     fetch(`/api/admin/platform-config?businessId=${businessId}`, {
@@ -1346,7 +1346,7 @@ function ApiKeysSection({ businessId }: { businessId: string }) {
         setValues((v) => ({ ...v, ...incoming }));
       })
       .catch(() => {});
-  });
+  }, [businessId, loaded]);
 
   const toggleReveal = (key: string) =>
     setRevealed((r) => ({ ...r, [key]: !r[key] }));
