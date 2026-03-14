@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 
@@ -314,16 +314,14 @@ function OrderCard({ order, storeSlug }: { order: Order; storeSlug: string }) {
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
-export default function TrackResultsPage({
-  params: paramsPromise,
+function TrackResultsInner({
+  storeSlug,
 }: {
-  params: Promise<{ storeSlug: string }>;
+  storeSlug: string;
 }) {
-  const params = React.use(paramsPromise);
   const searchParams = useSearchParams();
   const phone = searchParams.get('phone') ?? '';
   const orderNumber = searchParams.get('orderNumber') ?? '';
-  const storeSlug = params.storeSlug;
 
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
@@ -429,5 +427,30 @@ export default function TrackResultsPage({
         </div>
       </div>
     </div>
+  );
+}
+
+export default function TrackResultsPage({
+  params: paramsPromise,
+}: {
+  params: Promise<{ storeSlug: string }>;
+}) {
+  const params = React.use(paramsPromise);
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-[var(--color-store-bg)] py-8 px-4">
+        <div className="max-w-2xl mx-auto space-y-4">
+          {[1, 2].map((i) => (
+            <div key={i} className="bg-white rounded-xl border border-gray-200 p-5 animate-pulse">
+              <div className="h-5 bg-gray-200 rounded w-40 mb-3" />
+              <div className="h-4 bg-gray-100 rounded w-full mb-2" />
+              <div className="h-4 bg-gray-100 rounded w-3/4" />
+            </div>
+          ))}
+        </div>
+      </div>
+    }>
+      <TrackResultsInner storeSlug={params.storeSlug} />
+    </Suspense>
   );
 }
