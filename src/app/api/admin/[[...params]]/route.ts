@@ -144,6 +144,46 @@ export async function GET(
   // ── Public: no auth needed ──────────────────
   // (no public GET routes on admin — all require super admin)
 
+  // ── GET /api/admin/platform-config?businessId=xxx (business owner fetching own keys) ──
+  // Must be checked BEFORE requireSuperAdmin so business owners are not blocked.
+  if (resource === 'platform-config') {
+    const { searchParams } = new URL(request.url);
+    const businessIdParam = searchParams.get('businessId');
+
+    if (businessIdParam) {
+      const callerSession = await auth();
+      const isOwner =
+        callerSession?.user?.role === 'BUSINESS_OWNER' &&
+        callerSession.user.businessId === businessIdParam;
+      const isAdmin = callerSession?.user?.role === 'SUPER_ADMIN';
+      if (!isOwner && !isAdmin) {
+        return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+      }
+
+      const [businessConfigs, globalConfigs] = await Promise.all([
+        prisma.platformConfig.findMany({
+          where: { businessId: businessIdParam },
+          orderBy: { key: 'asc' },
+        }),
+        prisma.platformConfig.findMany({
+          where: { businessId: null },
+          orderBy: { key: 'asc' },
+        }),
+      ]);
+
+      const merged = new Map<string, string>();
+      for (const c of globalConfigs) merged.set(c.key, c.value);
+      for (const c of businessConfigs) merged.set(c.key, c.value);
+
+      return NextResponse.json({
+        data: Array.from(merged.entries()).map(([key, value]) => ({
+          key,
+          value,
+        })),
+      });
+    }
+  }
+
   const check = await requireSuperAdmin(request);
   if ('error' in check) return check.error;
 
@@ -255,46 +295,6 @@ export async function GET(
 
   // ── GET /api/admin/platform-config ─────────
   if (resource === 'platform-config') {
-    const { searchParams } = new URL(request.url);
-    const businessIdParam = searchParams.get('businessId');
-
-    if (businessIdParam) {
-      // Business owner fetching their own keys — verify ownership or super admin
-      const callerSession = await auth();
-      const isOwner =
-        callerSession?.user?.role === 'BUSINESS_OWNER' &&
-        callerSession.user.businessId === businessIdParam;
-      const isAdmin = callerSession?.user?.role === 'SUPER_ADMIN';
-      if (!isOwner && !isAdmin) {
-        return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
-      }
-
-      // Return business-specific keys with actual values (not masked)
-      // so the settings form can pre-populate the fields
-      const [businessConfigs, globalConfigs] = await Promise.all([
-        prisma.platformConfig.findMany({
-          where: { businessId: businessIdParam },
-          orderBy: { key: 'asc' },
-        }),
-        prisma.platformConfig.findMany({
-          where: { businessId: null },
-          orderBy: { key: 'asc' },
-        }),
-      ]);
-
-      // Merge: business-specific overrides global
-      const merged = new Map<string, string>();
-      for (const c of globalConfigs) merged.set(c.key, c.value);
-      for (const c of businessConfigs) merged.set(c.key, c.value);
-
-      return NextResponse.json({
-        data: Array.from(merged.entries()).map(([key, value]) => ({
-          key,
-          value,
-        })),
-      });
-    }
-
     // Super admin fetching global keys (masked)
     const configs = await prisma.platformConfig.findMany({
       where: { businessId: null },
