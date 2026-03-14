@@ -1,0 +1,311 @@
+// prisma/schema.prisma
+
+generator client {
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "rhel-openssl-3.0.x"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─────────────────────────────────────────────
+// ENUMS
+// ─────────────────────────────────────────────
+
+enum UserRole {
+  SUPER_ADMIN
+  BUSINESS_OWNER
+}
+
+enum PlanType {
+  TRIAL
+  STARTER
+  PRO
+}
+
+enum BusinessStatus {
+  ACTIVE
+  SUSPENDED
+  CANCELLED
+}
+
+enum ProductStatus {
+  ACTIVE
+  DRAFT
+  ARCHIVED
+}
+
+enum PaymentMethod {
+  BKASH
+  NAGAD
+  STRIPE
+  COD
+}
+
+enum PaymentStatus {
+  PENDING
+  PAID
+  FAILED
+  REFUNDED
+}
+
+enum FulfillmentStatus {
+  NEW
+  CONFIRMED
+  PROCESSING
+  SHIPPED
+  DELIVERED
+  CANCELLED
+}
+
+enum OrderChannel {
+  WEBSITE
+  MESSENGER
+  MANUAL
+}
+
+enum PostStatus {
+  PENDING_REVIEW
+  SCHEDULED
+  POSTING
+  LIVE
+  FAILED
+  REJECTED
+}
+
+enum ConversationStatus {
+  OPEN
+  RESOLVED
+  FLAGGED
+}
+
+enum MessageRole {
+  CUSTOMER
+  BOT
+  HUMAN
+}
+
+enum ActivityType {
+  ORDER_NEW
+  ORDER_STATUS_CHANGE
+  MESSENGER_MESSAGE
+  POST_LIVE
+  POST_FAILED
+  STOCK_LOW
+  SYSTEM
+}
+
+// ─────────────────────────────────────────────
+// MODELS
+// ─────────────────────────────────────────────
+
+model User {
+  id         String   @id @default(cuid())
+  email      String   @unique
+  password   String
+  name       String
+  role       UserRole
+  businessId String?  @unique
+  business   Business? @relation(fields: [businessId], references: [id])
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+}
+
+model Business {
+  id             String          @id @default(cuid())
+  name           String
+  slug           String          @unique
+  logo           String?
+  tagline        String?
+  accentColor    String          @default("#7c3aed")
+  heroImages     String[]
+  domain         String?         @unique
+  plan           PlanType
+  planExpiresAt  DateTime?
+  status         BusinessStatus
+  owner          User?
+  products       Product[]
+  orders         Order[]
+  posts          SocialPost[]
+  config         BusinessConfig?
+  platformConfig PlatformConfig[]
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+}
+
+model BusinessConfig {
+  id                    String    @id @default(cuid())
+  businessId            String    @unique
+  business              Business  @relation(fields: [businessId], references: [id])
+  chatbotPersonality    String    @default("friendly")
+  chatbotWelcomeMessage String
+  chatbotLanguage       String    @default("en")
+  knowledgeBase         Json
+  deliveryCharge        Decimal   @default(0) @db.Decimal(10, 2)
+  freeDeliveryThreshold Decimal?  @db.Decimal(10, 2)
+  deliveryTimeMessage   String?
+  cashOnDelivery        Boolean   @default(true)
+  bkashNumber           String?
+  bkashInstructions     String?
+  nagadNumber           String?
+  nagadInstructions     String?
+  stripePublicKey       String?
+  stripeSecretKey       String?
+  facebookPageId        String?
+  facebookPageToken     String?
+  instagramAccountId    String?
+  messengerEnabled      Boolean   @default(false)
+  socialAutoApprove     Boolean   @default(false)
+  defaultPostTime       String    @default("10:00")
+  notificationEmail     String?
+  notifyOnOrder         Boolean   @default(true)
+  notifyOnMessage       Boolean   @default(true)
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+}
+
+model PlatformConfig {
+  id         String    @id @default(cuid())
+  businessId String?
+  business   Business? @relation(fields: [businessId], references: [id])
+  key        String
+  value      String
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  @@unique([businessId, key])
+}
+
+model Product {
+  id            String           @id @default(cuid())
+  businessId    String
+  business      Business         @relation(fields: [businessId], references: [id])
+  name          String
+  slug          String
+  description   String?
+  price         Decimal          @db.Decimal(10, 2)
+  compareAtPrice Decimal?        @db.Decimal(10, 2)
+  images        String[]
+  category      String
+  status        ProductStatus
+  trackStock    Boolean          @default(false)
+  stockQuantity Int              @default(0)
+  variants      ProductVariant[]
+  orderItems    OrderItem[]
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+
+  @@unique([businessId, slug])
+}
+
+model ProductVariant {
+  id        String   @id @default(cuid())
+  productId String
+  product   Product  @relation(fields: [productId], references: [id])
+  name      String
+  options   Json
+  createdAt DateTime @default(now())
+}
+
+model Order {
+  id                String            @id @default(cuid())
+  businessId        String
+  business          Business          @relation(fields: [businessId], references: [id])
+  orderNumber       String            @unique
+  customerName      String
+  customerPhone     String
+  customerEmail     String?
+  deliveryAddress   String
+  items             OrderItem[]
+  subtotal          Decimal           @db.Decimal(10, 2)
+  deliveryCharge    Decimal           @db.Decimal(10, 2)
+  total             Decimal           @db.Decimal(10, 2)
+  paymentMethod     PaymentMethod
+  paymentStatus     PaymentStatus
+  transactionId     String?
+  fulfillmentStatus FulfillmentStatus
+  channel           OrderChannel
+  messengerSenderId String?
+  internalNotes     String?
+  statusHistory     Json
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+}
+
+model OrderItem {
+  id          String   @id @default(cuid())
+  orderId     String
+  order       Order    @relation(fields: [orderId], references: [id])
+  productId   String
+  product     Product  @relation(fields: [productId], references: [id])
+  productName String
+  variantLabel String?
+  price       Decimal  @db.Decimal(10, 2)
+  quantity    Int
+  imageUrl    String?
+}
+
+model SocialPost {
+  id               String     @id @default(cuid())
+  businessId       String
+  business         Business   @relation(fields: [businessId], references: [id])
+  productId        String?
+  facebookCaption  String
+  instagramCaption String
+  imageUrls        Json
+  status           PostStatus
+  scheduledAt      DateTime?
+  postedAt         DateTime?
+  facebookPostId   String?
+  instagramPostId  String?
+  reach            Int?
+  impressions      Int?
+  reactions        Int?
+  linkClicks       Int?
+  lastInsightSync  DateTime?
+  createdAt        DateTime   @default(now())
+  updatedAt        DateTime   @updatedAt
+}
+
+model MessengerConversation {
+  id                  String             @id @default(cuid())
+  businessId          String
+  senderId            String
+  senderName          String?
+  senderAvatar        String?
+  lastMessageAt       DateTime
+  lastMessagePreview  String
+  unreadCount         Int                @default(0)
+  status              ConversationStatus
+  starred             Boolean            @default(false)
+  messages            MessengerMessage[]
+  associatedOrderIds  String[]
+  createdAt           DateTime           @default(now())
+  updatedAt           DateTime           @updatedAt
+
+  @@unique([businessId, senderId])
+}
+
+model MessengerMessage {
+  id             String                @id @default(cuid())
+  conversationId String
+  conversation   MessengerConversation @relation(fields: [conversationId], references: [id])
+  role           MessageRole
+  content        String
+  timestamp      DateTime
+  mid            String?               @unique
+}
+
+model ActivityLog {
+  id          String       @id @default(cuid())
+  businessId  String
+  type        ActivityType
+  title       String
+  description String
+  metadata    Json?
+  actionUrl   String?
+  actionLabel String?
+  createdAt   DateTime     @default(now())
+}

@@ -1,0 +1,12 @@
+{
+  "crons": [
+    {
+      "path": "/api/cron/social-scheduler",
+      "schedule": "* * * * *"
+    },
+    {
+      "path": "/api/cron/social-insights",
+      "schedule": "0 */6 * * *"
+    }
+  ]
+}
