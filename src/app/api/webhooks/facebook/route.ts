@@ -71,6 +71,98 @@ async function sendMessengerMessage(
   });
 }
 
+async function sendProductCarousel(
+  senderId: string,
+  products: Array<{
+    name: string;
+    price: number;
+    imageUrl: string;
+    slug: string;
+    description: string | null;
+  }>,
+  storeUrl: string,
+  pageToken: string,
+): Promise<void> {
+  const elements = products.slice(0, 10).map((p) => {
+    // Build clean Cloudinary image URL for Messenger
+    const imageUrl = buildMessengerImageUrl(p.imageUrl);
+    const price = '৳' + Number(p.price).toLocaleString();
+    const productUrl = `${storeUrl}/products/${p.slug}`;
+    const subtitle = p.description
+      ? p.description.slice(0, 80) + (p.description.length > 80 ? '...' : '')
+      : price;
+
+    return {
+      title: `${p.name} — ${price}`,
+      subtitle,
+      image_url: imageUrl,
+      buttons: [
+        {
+          type: 'web_url',
+          url: productUrl,
+          title: '🛒 View & Order',
+        },
+        {
+          type: 'postback',
+          title: '💬 Ask About This',
+          payload: `ASK_PRODUCT:${p.name}:${price}`,
+        },
+      ],
+    };
+  });
+
+  await fetch('https://graph.facebook.com/v19.0/me/messages', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      recipient: { id: senderId },
+      message: {
+        attachment: {
+          type: 'template',
+          payload: {
+            template_type: 'generic',
+            elements,
+          },
+        },
+      },
+      access_token: pageToken,
+    }),
+  });
+}
+
+function buildMessengerImageUrl(imageUrl: string): string {
+  if (!imageUrl) return '';
+  // Already a full URL — apply Cloudinary square crop for Messenger cards
+  if (imageUrl.startsWith('http')) {
+    const uploadMarker = '/upload/';
+    const idx = imageUrl.indexOf(uploadMarker);
+    if (idx === -1) return imageUrl;
+    const base = imageUrl.slice(0, idx + uploadMarker.length);
+    const afterUpload = imageUrl.slice(idx + uploadMarker.length);
+    const segments = afterUpload.split('/');
+    const cleanSegments = segments.filter((seg) => {
+      if (/^v\d+$/.test(seg)) return false;
+      if (seg.includes('_')) return false;
+      return true;
+    });
+    return base + 'c_fill,ar_1:1,w_800,f_auto,q_auto/' + cleanSegments.join('/');
+  }
+  // Bare public ID
+  const cloudName = process.env.CLOUDINARY_CLOUD_NAME;
+  return `https://res.cloudinary.com/${cloudName}/image/upload/c_fill,ar_1:1,w_800,f_auto,q_auto/${imageUrl}`;
+}
+
+function shouldShowCarousel(message: string): boolean {
+  const lower = message.toLowerCase();
+  const triggers = [
+    'product', 'products', 'show', 'list', 'catalog', 'catalogue',
+    'what do you sell', 'what do you have', 'available', 'items',
+    'collection', 'shop', 'buy', 'purchase', 'price', 'prices',
+    'পণ্য', 'দেখাও', 'কি আছে', 'কি পাওয়া যায়', 'দাম',
+  ];
+  return triggers.some((t) => lower.includes(t));
+}
+
 async function buildSystemPrompt(
   businessConfig: Awaited<ReturnType<typeof prisma.businessConfig.findFirst>> & {
     business: { name: string; slug: string };
@@ -248,6 +340,7 @@ async function processMessagingEvent(
   );
 
   // Fetch Groq key and generate reply
+  // Fetch Groq key and generate reply
   const groqKey = await getGroqKey('MESSENGER', businessId);
   const groq = createGroq({ apiKey: groqKey });
 
@@ -260,8 +353,37 @@ async function processMessagingEvent(
     })),
   });
 
-  // Send reply via Facebook Send API
+  // Send text reply first
   await sendMessengerMessage(senderId, reply, businessConfig.facebookPageToken);
+
+  // If customer is asking about products, send a carousel after the text reply
+  if (shouldShowCarousel(messageText)) {
+    const storeUrl = `${process.env.NEXTAUTH_URL ?? 'https://socialforge3.vercel.app'}/${businessConfig.business.slug}`;
+    const products = await prisma.product.findMany({
+      where: { businessId, status: 'ACTIVE' },
+      orderBy: { createdAt: 'desc' },
+      take: 10,
+    });
+
+    const carouselProducts = products
+      .filter((p) => p.images && (p.images as string[]).length > 0)
+      .map((p) => ({
+        name: p.name,
+        price: Number(p.price),
+        imageUrl: (p.images as string[])[0],
+        slug: p.slug,
+        description: p.description,
+      }));
+
+    if (carouselProducts.length > 0) {
+      await sendProductCarousel(
+        senderId,
+        carouselProducts,
+        storeUrl,
+        businessConfig.facebookPageToken,
+      );
+    }
+  }
 
   // Update Redis session
   const updatedMessages = [
