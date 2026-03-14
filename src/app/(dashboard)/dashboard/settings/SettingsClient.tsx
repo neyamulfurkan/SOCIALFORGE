@@ -1,7 +1,7 @@
 // src/app/(dashboard)/dashboard/settings/SettingsClient.tsx
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { cn } from '@/lib/utils';
 import { CHATBOT_PERSONALITIES, PRODUCT_CATEGORIES, COLOR_SCHEMES } from '@/lib/constants';
 import type { BusinessConfigShape } from '@/lib/types';
