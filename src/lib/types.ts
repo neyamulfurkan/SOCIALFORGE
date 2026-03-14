@@ -77,7 +77,7 @@ export type StoreConfig = {
   logo?: string;
   tagline?: string;
   accentColor: string;
-  heroImages: string[];
+  heroImages?: string[];
   domain?: string;
   config: BusinessConfigShape;
 };
