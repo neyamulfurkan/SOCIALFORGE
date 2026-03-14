@@ -238,9 +238,9 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ error: 'Invalid signature' }, { status: 403 });
   }
 
-  // 3. Return 200 immediately — Meta requires a response within 5 seconds
-  //    All processing happens asynchronously after the response is returned.
-  void (async () => {
+  // 3. Process asynchronously using waitUntil so Vercel keeps the function alive
+  const { waitUntil } = await import('@vercel/functions');
+  waitUntil((async () => {
     try {
       const body = JSON.parse(rawBody) as WebhookBody;
 
@@ -268,7 +268,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     } catch (err) {
       console.error('Messenger webhook: fatal processing error:', err);
     }
-  })();
+  })());
 
   return NextResponse.json({ status: 'ok' });
 }
