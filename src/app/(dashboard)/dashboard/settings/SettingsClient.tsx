@@ -1115,15 +1115,12 @@ function MessengerSection({
         setMessengerEnabled(true);
         setConnectStatus('connected');
         setConnectError(null);
-        // Auto-save the messenger config so the saved state is reflected
-        // Token is already saved by the callback route — we just save the
-        // pageId and messengerEnabled flag here.
+        // Only save pageId and messengerEnabled — do NOT touch facebookPageToken
+        // here because the callback route already saved it server-side directly.
+        // Sending it here would overwrite it with the empty form value.
         save('messenger', {
           messengerEnabled: true,
           facebookPageId: pageId,
-          // Pass a sentinel so the server does not overwrite the token that
-          // was already saved by the callback route.
-          facebookPageToken: facebookPageToken || undefined,
         });
       } else {
         setConnectStatus('error');
