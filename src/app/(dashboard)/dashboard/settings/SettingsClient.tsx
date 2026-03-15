@@ -1109,19 +1109,15 @@ function MessengerSection({
       if (data.success === true) {
         const pageId = String(data.pageId ?? '');
         const pageName = String(data.pageName ?? '');
-        // Update the Page ID field — token is saved server-side already
-        setFacebookPageId(pageId);
         setConnectedPageName(pageName);
-        setMessengerEnabled(true);
         setConnectStatus('connected');
         setConnectError(null);
-        // Only save pageId and messengerEnabled — do NOT touch facebookPageToken
-        // here because the callback route already saved it server-side directly.
-        // Sending it here would overwrite it with the empty form value.
-        save('messenger', {
-          messengerEnabled: true,
-          facebookPageId: pageId,
-        });
+        // Token is already saved server-side by the callback route.
+        // Reload the page after a short delay so the server re-fetches
+        // the token from the database and populates the form correctly.
+        setTimeout(() => {
+          window.location.reload();
+        }, 1500);
       } else {
         setConnectStatus('error');
         setConnectError(String(data.error ?? 'Connection failed. Please try again.'));
