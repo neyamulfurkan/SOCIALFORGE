@@ -1092,13 +1092,57 @@ function MessengerSection({
   const [facebookPageToken, setFacebookPageToken] = useState(
     initial.facebookPageToken ?? '',
   );
+  const [connectedPageName, setConnectedPageName] = useState<string | null>(null);
+  const [connectStatus, setConnectStatus] = useState<'idle' | 'connecting' | 'connected' | 'error'>('idle');
+  const [connectError, setConnectError] = useState<string | null>(null);
 
-   const openMetaOAuth = () => {
+  // Listen for the postMessage result from the OAuth popup
+  useEffect(() => {
+    function handleMessage(event: MessageEvent) {
+      // Only accept messages from our own origin
+      if (event.origin !== window.location.origin) return;
+      const data = event.data as Record<string, unknown>;
+      if (!data || typeof data !== 'object') return;
+      // Only handle messages that look like our OAuth result
+      if (!('success' in data) || !('tokenSaved' in data || 'error' in data)) return;
+
+      if (data.success === true) {
+        const pageId = String(data.pageId ?? '');
+        const pageName = String(data.pageName ?? '');
+        // Update the Page ID field — token is saved server-side already
+        setFacebookPageId(pageId);
+        setConnectedPageName(pageName);
+        setMessengerEnabled(true);
+        setConnectStatus('connected');
+        setConnectError(null);
+        // Auto-save the messenger config so the saved state is reflected
+        // Token is already saved by the callback route — we just save the
+        // pageId and messengerEnabled flag here.
+        save('messenger', {
+          messengerEnabled: true,
+          facebookPageId: pageId,
+          // Pass a sentinel so the server does not overwrite the token that
+          // was already saved by the callback route.
+          facebookPageToken: facebookPageToken || undefined,
+        });
+      } else {
+        setConnectStatus('error');
+        setConnectError(String(data.error ?? 'Connection failed. Please try again.'));
+      }
+    }
+
+    window.addEventListener('message', handleMessage);
+    return () => window.removeEventListener('message', handleMessage);
+  }, [save, facebookPageToken]);
+
+  const openMetaOAuth = () => {
     const appId = process.env.NEXT_PUBLIC_META_APP_ID;
     if (!appId) {
       alert('Facebook App ID is not configured. Please add NEXT_PUBLIC_META_APP_ID to your environment variables.');
       return;
     }
+    setConnectStatus('connecting');
+    setConnectError(null);
     const redirectUri = encodeURIComponent(window.location.origin + '/api/auth/facebook/callback');
     const scope = 'pages_messaging,pages_manage_posts,instagram_basic,instagram_content_publish,pages_read_engagement';
     const popup = window.open(
@@ -1107,9 +1151,20 @@ function MessengerSection({
       'width=600,height=700',
     );
     if (!popup) {
+      setConnectStatus('idle');
       alert('Please allow popups to connect your Facebook Page.');
+      return;
     }
+    // Poll for popup close so we can reset connecting state if user closes manually
+    const poll = setInterval(() => {
+      if (popup.closed) {
+        clearInterval(poll);
+        setConnectStatus((prev) => prev === 'connecting' ? 'idle' : prev);
+      }
+    }, 500);
   };
+
+  const isAlreadyConnected = !!initial.facebookPageToken || connectStatus === 'connected';
 
   return (
     <SectionCard title="Messenger">
@@ -1118,9 +1173,29 @@ function MessengerSection({
         onChange={setMessengerEnabled}
         label="Enable Messenger Bot"
       />
+
+      {/* Connection status banner */}
+      {connectStatus === 'connected' && connectedPageName && (
+        <div className="flex items-center gap-2 px-3 py-2 rounded-md bg-success/10 border border-success/20">
+          <span className="text-success text-sm font-medium">✓ Connected to: {connectedPageName}</span>
+          <span className="text-xs text-text-secondary ml-auto">Token & Instagram saved automatically</span>
+        </div>
+      )}
+      {connectStatus === 'error' && connectError && (
+        <div className="px-3 py-2 rounded-md bg-error/10 border border-error/20">
+          <p className="text-error text-sm">{connectError}</p>
+        </div>
+      )}
+      {isAlreadyConnected && connectStatus === 'idle' && (
+        <div className="flex items-center gap-2 px-3 py-2 rounded-md bg-accent/10 border border-accent/20">
+          <span className="text-accent text-sm font-medium">✓ Facebook Page connected</span>
+          <span className="text-xs text-text-secondary ml-auto">Click below to reconnect with a different Page</span>
+        </div>
+      )}
+
       <Field
         label="Facebook Page ID"
-        hint="Find this in your Facebook Page settings > About."
+        hint="Auto-filled when you use the Connect button. Or find it in your Facebook Page settings > About."
       >
         <TextInput
           value={facebookPageId}
@@ -1130,21 +1205,38 @@ function MessengerSection({
       </Field>
       <Field
         label="Facebook Page Access Token"
-        hint="Generated via the Meta developer console or the Connect button below."
+        hint="Auto-saved when you use the Connect button. Or paste manually from Meta developer console."
       >
         <TextInput
           value={facebookPageToken}
           onChange={setFacebookPageToken}
           type="password"
-          placeholder="EAA…"
+          placeholder="EAA… (auto-filled by Connect button)"
         />
       </Field>
+
       <button
         onClick={openMetaOAuth}
-        className="self-start flex items-center gap-2 h-9 px-4 text-sm font-medium rounded-md border border-border text-text-primary hover:bg-surface-raised transition-colors"
+        disabled={connectStatus === 'connecting'}
+        className={cn(
+          'self-start flex items-center gap-2 h-9 px-4 text-sm font-medium rounded-md border transition-colors',
+          connectStatus === 'connecting'
+            ? 'border-border text-text-tertiary opacity-60 cursor-not-allowed'
+            : 'border-border text-text-primary hover:bg-surface-raised',
+        )}
       >
-        Connect via Facebook
+        {connectStatus === 'connecting' ? (
+          <>
+            <span className="inline-block w-3 h-3 border-2 border-text-tertiary border-t-transparent rounded-full animate-spin" />
+            Connecting…
+          </>
+        ) : isAlreadyConnected ? (
+          'Reconnect via Facebook'
+        ) : (
+          'Connect via Facebook'
+        )}
       </button>
+
       <div className="flex justify-end pt-1">
         <SaveButton
           state={saveState}

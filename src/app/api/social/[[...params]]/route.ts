@@ -611,23 +611,10 @@ export async function PATCH(
     let failed = false;
     let failureReason = '';
 
-    // Attempt Instagram first so rollback is easier if Facebook fails
-    if (instagramAccountId && facebookPageToken && igImage) {
-      try {
-        instagramPostId = await postToInstagram(
-          instagramAccountId,
-          facebookPageToken,
-          igImage,
-          post.instagramCaption,
-        );
-      } catch (err) {
-        console.error('Instagram publish failed:', err);
-        failed = true;
-        failureReason = `Instagram: ${(err as Error).message}`;
-      }
-    }
-
-    if (!failed && facebookPageId && facebookPageToken && fbImage) {
+    // Attempt Facebook first — it is the primary platform.
+    // Instagram is attempted after. If Facebook fails, Instagram is skipped.
+    // If Instagram fails after Facebook succeeds, we log but do not rollback Facebook.
+    if (facebookPageId && facebookPageToken && fbImage) {
       try {
         facebookPostId = await postToFacebook(
           facebookPageId,
@@ -639,12 +626,29 @@ export async function PATCH(
         console.error('Facebook publish failed:', err);
         failed = true;
         failureReason = `Facebook: ${(err as Error).message}`;
+      }
+    } else if (!facebookPageId || !facebookPageToken) {
+      failed = true;
+      failureReason = 'Facebook Page ID or Access Token is not configured. Go to Settings → Messenger to connect your Page.';
+    } else if (!fbImage) {
+      failed = true;
+      failureReason = 'No image available for Facebook post.';
+    }
 
-        // Rollback Instagram if it succeeded
-        if (instagramPostId && facebookPageToken) {
-          await deleteInstagramPost(instagramPostId, facebookPageToken);
-          instagramPostId = null;
-        }
+    // Only attempt Instagram if Facebook succeeded
+    if (!failed && instagramAccountId && facebookPageToken && igImage) {
+      try {
+        instagramPostId = await postToInstagram(
+          instagramAccountId,
+          facebookPageToken,
+          igImage,
+          post.instagramCaption,
+        );
+      } catch (err) {
+        // Instagram failure does not roll back the Facebook post —
+        // log it and continue so at least Facebook is marked LIVE.
+        console.error('Instagram publish failed (Facebook succeeded):', err);
+        instagramPostId = null;
       }
     }
 
