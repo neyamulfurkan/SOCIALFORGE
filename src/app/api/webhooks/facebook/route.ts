@@ -171,7 +171,48 @@ function extractCarouselSlugs(replyText: string): string[] | null {
 
 // Strip the carousel tag from the visible reply text before sending
 function stripCarouselTag(replyText: string): string {
-  return replyText.replace(/\n?%%CAROUSEL%%[\s\S]*?%%END%%/g, '').trim();
+  return replyText
+    .replace(/\n?%%CAROUSEL%%[\s\S]*?%%END%%/g, '')
+    .replace(/\n?%%ORDER%%[\s\S]*?%%END%%/g, '')
+    .trim();
+}
+
+type OrderTag = {
+  productSlug: string;
+  quantity: number;
+  customerName: string;
+  customerPhone: string;
+  deliveryAddress: string;
+  paymentMethod: string;
+  transactionId: string | null;
+};
+
+// Extract order data the AI embedded in its reply
+function extractOrderTag(replyText: string): OrderTag | null {
+  const match = replyText.match(/%%ORDER%%([\s\S]*?)%%END%%/);
+  if (!match) return null;
+  try {
+    const parsed = JSON.parse(match[1].trim());
+    if (
+      !parsed.productSlug ||
+      !parsed.customerName ||
+      !parsed.customerPhone ||
+      !parsed.deliveryAddress ||
+      !parsed.paymentMethod
+    ) {
+      return null;
+    }
+    // Reject bKash/Nagad orders with no transaction ID
+    const method = (parsed.paymentMethod as string).toUpperCase();
+    if ((method === 'BKASH' || method === 'NAGAD') && !parsed.transactionId) {
+      console.warn('[Webhook] ORDER tag rejected — bKash/Nagad order missing transactionId');
+      return null;
+    }
+    return parsed as OrderTag;
+  } catch {
+    // malformed tag
+  }
+  return null;
 }
 
 async function buildSystemPrompt(
@@ -315,7 +356,24 @@ async function buildSystemPrompt(
     `Only include slugs of products you actually mentioned. ` +
     `If the customer asks to see all products, include all available slugs up to 8. ` +
     `If your reply mentions no products, do NOT include the tag. ` +
-    `Slugs must exactly match those listed in the catalog below.` +
+    `Slugs must exactly match those listed in the catalog below.\n` +
+    `ORDER RULE: When a customer wants to order, you must collect ALL of the following step by step: ` +
+    `(1) product name and quantity, (2) full name, (3) phone number, (4) delivery address, ` +
+    `(5) payment method — tell them the available options are: ${[
+      businessConfig.cashOnDelivery ? 'Cash on Delivery (COD)' : '',
+      businessConfig.bkashNumber ? `bKash (send to ${businessConfig.bkashNumber})` : '',
+      businessConfig.nagadNumber ? `Nagad (send to ${businessConfig.nagadNumber})` : '',
+    ].filter(Boolean).join(', ')}. ` +
+    `If the customer chooses bKash or Nagad: tell them to send the payment first, then ask for their transaction ID (TrxID). ` +
+    `For COD: no transaction ID needed. ` +
+    `Only append the ORDER tag when you have ALL required info including transactionId for bKash/Nagad. ` +
+    `MUST append this tag on a new line at the very end when order is complete: ` +
+    `%%ORDER%%{"productSlug":"slug","quantity":1,"customerName":"name","customerPhone":"phone","deliveryAddress":"address","paymentMethod":"COD","transactionId":null}%%END%% ` +
+    `For bKash: paymentMethod="BKASH" and transactionId="the TrxID they gave". ` +
+    `For Nagad: paymentMethod="NAGAD" and transactionId="the TrxID they gave". ` +
+    `For COD: paymentMethod="COD" and transactionId=null. ` +
+    `Never create the order tag without transactionId when payment method is bKash or Nagad. ` +
+    `After the tag, confirm the order is placed and thank the customer.` +
     catalogSection +
     deliverySection +
     paymentSection +
@@ -419,6 +477,103 @@ async function processMessagingEvent(
 
   // Send text reply first
   await sendMessengerMessage(senderId, visibleReply, businessConfig.facebookPageToken);
+
+  // Create real order if AI collected all required info
+  const orderTag = extractOrderTag(reply);
+  if (orderTag) {
+    try {
+      // Find the product by slug
+      const product = await prisma.product.findFirst({
+        where: { businessId, slug: orderTag.productSlug, status: 'ACTIVE' },
+      });
+
+      if (product) {
+        const { generateOrderNumber } = await import('@/lib/utils');
+        const deliveryCharge = Number(businessConfig.deliveryCharge ?? 0);
+        const unitPrice = Number(product.price);
+        const quantity = Math.max(1, Number(orderTag.quantity) || 1);
+        const subtotal = unitPrice * quantity;
+        const total = subtotal + deliveryCharge;
+
+const paymentMethodMap: Record<string, string> = {
+      COD: 'COD',
+      BKASH: 'BKASH',
+      NAGAD: 'NAGAD',
+      bkash: 'BKASH',
+      nagad: 'NAGAD',
+      cod: 'COD',
+    };
+    const paymentMethod =
+      paymentMethodMap[orderTag.paymentMethod] ?? 'COD';
+
+    // bKash/Nagad orders with a transactionId are treated as PAID
+    // COD orders are always PENDING until delivery
+    const paymentStatus =
+      (paymentMethod === 'BKASH' || paymentMethod === 'NAGAD') &&
+      orderTag.transactionId
+        ? 'PAID'
+        : 'PENDING';
+
+    const order = await prisma.order.create({
+      data: {
+        businessId,
+        orderNumber: generateOrderNumber(),
+        customerName: orderTag.customerName,
+        customerPhone: orderTag.customerPhone,
+        deliveryAddress: orderTag.deliveryAddress,
+        subtotal,
+        deliveryCharge,
+        total,
+        paymentMethod: paymentMethod as 'COD' | 'BKASH' | 'NAGAD' | 'STRIPE',
+        paymentStatus: paymentStatus as 'PENDING' | 'PAID',
+        transactionId: orderTag.transactionId ?? null,
+        fulfillmentStatus: 'NEW',
+        channel: 'MESSENGER',
+        messengerSenderId: senderId,
+        statusHistory: [
+          { status: 'NEW', timestamp: new Date().toISOString(), note: 'Order placed via Messenger' },
+        ],
+            items: {
+              create: {
+                productId: product.id,
+                productName: product.name,
+                price: unitPrice,
+                quantity,
+                imageUrl: (product.images as string[])[0] ?? null,
+              },
+            },
+          },
+        });
+
+        // Link order to conversation
+        await prisma.messengerConversation.update({
+          where: { businessId_senderId: { businessId, senderId } },
+          data: {
+            associatedOrderIds: {
+              push: order.id,
+            },
+          },
+        });
+
+        // Activity log
+        await prisma.activityLog.create({
+          data: {
+            businessId,
+            type: 'ORDER_NEW',
+            title: 'New Messenger order',
+            description: `Order ${order.orderNumber} from ${orderTag.customerName} via Messenger`,
+            metadata: { orderId: order.id, senderId },
+            actionUrl: `/dashboard/orders`,
+            actionLabel: 'View Order',
+          },
+        });
+
+        console.log(`[Webhook] Order ${order.orderNumber} created from Messenger conversation`);
+      }
+    } catch (orderErr) {
+      console.error('[Webhook] Failed to create order from Messenger:', orderErr);
+    }
+  }
 
   // Send carousel only for the specific products the AI mentioned
   if (carouselSlugs && carouselSlugs.length > 0) {
