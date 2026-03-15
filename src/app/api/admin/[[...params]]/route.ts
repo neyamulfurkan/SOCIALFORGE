@@ -184,6 +184,21 @@ export async function GET(
     }
   }
 
+  // ── GET /api/admin/business-config (business owner fetches own config) ──
+  if (resource === 'business-config') {
+    const callerSession = await auth();
+    if (!callerSession?.user?.businessId) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
+    const config = await prisma.businessConfig.findUnique({
+      where: { businessId: callerSession.user.businessId },
+    });
+    if (!config) {
+      return NextResponse.json({ error: 'Config not found' }, { status: 404 });
+    }
+    return NextResponse.json({ data: config });
+  }
+
   const check = await requireSuperAdmin(request);
   if ('error' in check) return check.error;
 
@@ -759,6 +774,45 @@ export async function PATCH(
   } catch {
     return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 });
   }
+
+  // ── PATCH /api/admin/business-config (business owner updates own config) ──
+  if (resource === 'business-config' && !resourceId) {
+    if (!session.user.businessId) {
+      return NextResponse.json({ error: 'No business associated' }, { status: 403 });
+    }
+    const businessId = session.user.businessId;
+
+    const parsed = updateBusinessConfigSchema.safeParse(body);
+    if (!parsed.success) {
+      return NextResponse.json({ error: 'Validation failed' }, { status: 400 });
+    }
+
+    const existing = await prisma.businessConfig.findUnique({
+      where: { businessId },
+    });
+
+    let updatedConfig;
+    if (existing) {
+      updatedConfig = await prisma.businessConfig.update({
+        where: { businessId },
+        data: parsed.data,
+      });
+    } else {
+      updatedConfig = await prisma.businessConfig.create({
+        data: {
+          businessId,
+          chatbotWelcomeMessage: '',
+          knowledgeBase: [],
+          ...parsed.data,
+        },
+      });
+    }
+
+    return NextResponse.json({ data: updatedConfig });
+  }
+
+  // ── GET /api/admin/business-config (business owner fetches own config) ──
+  // handled in GET handler above
 
   if (resource !== 'businesses' || !resourceId) {
     return NextResponse.json({ error: 'Not found' }, { status: 404 });
