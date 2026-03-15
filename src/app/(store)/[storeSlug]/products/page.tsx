@@ -139,13 +139,13 @@ export default async function ProductsPage({
           </p>
         </div>
 
-        <div className="flex flex-col lg:flex-row gap-8 items-start">
+        <div className="flex flex-col lg:flex-row gap-6 items-start">
 
           {/* ── Sidebar filters ── */}
           <aside className="w-full lg:w-52 flex-shrink-0 lg:sticky lg:top-[88px] lg:self-start lg:max-h-[calc(100vh-88px)] lg:overflow-y-auto">
 
             {/* Search box */}
-            <form method="GET" className="mb-6">
+            <form method="GET" className="hidden lg:block mb-6">
               {category && (
                 <input type="hidden" name="category" value={category} />
               )}
@@ -179,19 +179,19 @@ export default async function ProductsPage({
             {categories.length > 0 && (
               <div>
                 <p
-                  className="text-xs font-semibold uppercase tracking-wider mb-3"
+                  className="hidden lg:block text-xs font-semibold uppercase tracking-wider mb-3"
                   style={{ color: 'var(--color-text-secondary)' }}
                 >
                   Categories
                 </p>
-                <div className="flex flex-col gap-1">
+               <div className="flex flex-row lg:flex-col gap-2 overflow-x-auto pb-1 lg:pb-0 -mx-4 px-4 lg:mx-0 lg:px-0" style={{ scrollbarWidth: 'none' }}>
                   <a
                     href={`/${storeSlug}/products${search ? `?search=${encodeURIComponent(search)}` : ''}`}
                     className={cn(
-                      'px-3 py-2 rounded-md text-sm transition-colors',
+                      'flex-shrink-0 whitespace-nowrap px-3 py-1.5 lg:py-2 rounded-full lg:rounded-md text-sm transition-colors',
                       !category
                         ? 'bg-accent/10 text-accent font-medium'
-                        : 'text-store-text hover:bg-store-surface',
+                        : 'border border-store-border lg:border-0 text-store-text hover:bg-store-surface',
                     )}
                     style={!category ? { color: 'var(--color-accent)' } : { color: 'var(--color-store-text)' }}
                   >
@@ -202,10 +202,10 @@ export default async function ProductsPage({
                       key={cat}
                       href={`/${storeSlug}/products?category=${encodeURIComponent(cat)}${search ? `&search=${encodeURIComponent(search)}` : ''}`}
                       className={cn(
-                        'px-3 py-2 rounded-md text-sm transition-colors',
+                        'flex-shrink-0 whitespace-nowrap px-3 py-1.5 lg:py-2 rounded-full lg:rounded-md text-sm transition-colors',
                         category === cat
                           ? 'bg-accent/10 font-medium'
-                          : 'hover:bg-store-surface',
+                          : 'border border-store-border lg:border-0 hover:bg-store-surface',
                       )}
                       style={{
                         color: category === cat
