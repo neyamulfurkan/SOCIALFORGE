@@ -163,7 +163,7 @@ function OrderCard({ order, storeSlug }: { order: Order; storeSlug: string }) {
   const [expanded, setExpanded] = useState(false);
 
   return (
-    <div className="bg-white rounded-xl border border-[var(--color-store-border)] shadow-sm overflow-hidden">
+    <div className="bg-[var(--color-store-surface)] rounded-xl border border-[var(--color-store-border)] shadow-sm overflow-hidden">
       {/* Header */}
       <div className="px-5 py-4 border-b border-gray-100 flex flex-wrap items-start gap-3 justify-between">
         <div>
@@ -350,7 +350,7 @@ function TrackResultsInner({
   }, [phone, orderNumber, storeSlug]);
 
   return (
-    <div className="min-h-screen bg-[var(--color-store-bg)] py-8 px-4">
+    <div className="min-h-[70vh] bg-[var(--color-store-bg)] py-8 px-4">
       <div className="max-w-2xl mx-auto">
         {/* Header */}
         <div className="mb-6 flex items-center justify-between">
@@ -438,7 +438,7 @@ export default function TrackResultsPage({
   const params = React.use(paramsPromise);
   return (
     <Suspense fallback={
-      <div className="min-h-screen bg-[var(--color-store-bg)] py-8 px-4">
+      <div className="min-h-[70vh] bg-[var(--color-store-bg)] py-8 px-4">
         <div className="max-w-2xl mx-auto space-y-4">
           {[1, 2].map((i) => (
             <div key={i} className="bg-white rounded-xl border border-gray-200 p-5 animate-pulse">
