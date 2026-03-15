@@ -760,11 +760,16 @@ export async function PATCH(
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
   const isSuperAdmin = session.user.role === 'SUPER_ADMIN';
+  const isBusinessOwner = session.user.role === 'BUSINESS_OWNER';
   const isOwnerOfBusiness =
-    session.user.role === 'BUSINESS_OWNER' &&
+    isBusinessOwner &&
     session.user.businessId === resourceId;
 
-  if (!isSuperAdmin && !isOwnerOfBusiness) {
+  // Allow business-config route for any authenticated business owner
+  // (no resourceId in URL — uses session businessId instead)
+  const isBusinessConfigRoute = resource === 'business-config' && isBusinessOwner;
+
+  if (!isSuperAdmin && !isOwnerOfBusiness && !isBusinessConfigRoute) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 
