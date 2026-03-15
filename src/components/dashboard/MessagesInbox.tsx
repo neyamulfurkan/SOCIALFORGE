@@ -479,11 +479,11 @@ export default function MessagesInbox({ initialConversations, businessId }: Mess
                     {selectedConv.senderName ?? 'Unknown'}
                   </span>
                   <a
-                    href={`https://www.facebook.com/${selectedConv.senderId}`}
+                    href={`https://business.facebook.com/latest/inbox/messenger?selected_item_id=${selectedConv.senderId}`}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="text-text-tertiary hover:text-text-secondary transition-colors"
-                    title="View on Facebook"
+                    title="Open in Facebook Business Suite"
                   >
                     <ExternalLinkIcon className="w-3.5 h-3.5" />
                   </a>
@@ -613,7 +613,7 @@ export default function MessagesInbox({ initialConversations, businessId }: Mess
                 if (isCustomer) {
                   return (
                     <div key={msg.id} className="flex items-end gap-2">
-                      <InitialsAvatar name={selectedConv.senderName ?? 'C'} size="sm" />
+                      <InitialsAvatar name={selectedConv.senderName ?? 'C'} avatarUrl={selectedConv.senderAvatar} size="sm" />
                       <div className="max-w-xs lg:max-w-md">
                         <div className="bg-store-border text-store-text rounded-2xl rounded-bl-sm px-3 py-2 text-sm">
                           {renderMessageContent(msg.content)}
