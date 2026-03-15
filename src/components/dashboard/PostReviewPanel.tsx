@@ -423,6 +423,8 @@ export default function PostReviewPanel({ postId, onClose }: PostReviewPanelProp
       toast.success('Post scheduled!');
       qc.invalidateQueries({ queryKey: ['social'] });
       qc.invalidateQueries({ queryKey: ['social-post', postId] });
+      qc.invalidateQueries({ queryKey: ['social', undefined, 'scheduled'] });
+      qc.invalidateQueries({ queryKey: ['social', undefined, 'pending'] });
       onClose();
     },
     onError: (err: Error) => {

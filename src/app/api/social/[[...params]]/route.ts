@@ -40,6 +40,8 @@ const approvePostSchema = z.object({
 const schedulePostSchema = z.object({
   postId: z.string().min(1),
   scheduledAt: z.string().min(1),
+  facebookCaption: z.string().optional(),
+  instagramCaption: z.string().optional(),
 });
 
 const rejectPostSchema = z.object({
@@ -728,7 +730,7 @@ export async function PATCH(
   req: NextRequest,
   { params }: { params: Promise<{ params?: string[] }> },
 ): Promise<NextResponse> {
-  const businessId = await getAuthenticatedBusinessId();
+  const businessId = await getAuthenticatedBusinessId(req);
   if (!businessId) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
@@ -868,7 +870,7 @@ export async function PATCH(
         { status: 400 },
       );
     }
-    const { postId, scheduledAt } = parsed.data;
+    const { postId, scheduledAt, facebookCaption, instagramCaption } = parsed.data;
 
     const post = await prisma.socialPost.findFirst({
       where: { id: postId, businessId },
@@ -879,7 +881,12 @@ export async function PATCH(
 
     const updated = await prisma.socialPost.update({
       where: { id: postId },
-      data: { status: 'SCHEDULED', scheduledAt: new Date(scheduledAt) },
+      data: {
+        status: 'SCHEDULED',
+        scheduledAt: new Date(scheduledAt),
+        ...(facebookCaption ? { facebookCaption } : {}),
+        ...(instagramCaption ? { instagramCaption } : {}),
+      },
     });
     return NextResponse.json({ data: updated });
   }
@@ -948,7 +955,7 @@ export async function DELETE(
   req: NextRequest,
   { params }: { params: Promise<{ params?: string[] }> },
 ): Promise<NextResponse> {
-  const businessId = await getAuthenticatedBusinessId();
+  const businessId = await getAuthenticatedBusinessId(req);
   if (!businessId) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
