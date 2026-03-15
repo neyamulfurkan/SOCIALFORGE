@@ -306,6 +306,17 @@ export async function GET(
     });
   }
 
+  // GET /api/social/:postId — single post fetch
+  if (seg[0] && seg[0] !== 'calendar' && seg[0] !== 'history') {
+    const post = await prisma.socialPost.findFirst({
+      where: { id: seg[0], businessId },
+    });
+    if (!post) {
+      return NextResponse.json({ error: 'Post not found' }, { status: 404 });
+    }
+    return NextResponse.json({ data: post });
+  }
+
   // GET /api/social — list with filters
   const status = searchParams.get('status') ?? undefined;
   const dateFrom = searchParams.get('dateFrom');
