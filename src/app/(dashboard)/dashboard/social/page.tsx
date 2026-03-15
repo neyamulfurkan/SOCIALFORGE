@@ -101,6 +101,7 @@ function isSameDay(a: Date, b: Date): boolean {
 }
 
 import { toast } from '@/components/ui/Toast';
+import PostReviewPanel from '@/components/dashboard/PostReviewPanel';
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
@@ -885,7 +886,7 @@ export default function SocialPage() {
       {/* PostReviewPanel */}
       <AnimatePresence>
         {selectedPostId && (
-          <PostReviewPanelStub
+          <PostReviewPanel
             postId={selectedPostId}
             onClose={() => setSelectedPostId(null)}
           />
