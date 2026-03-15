@@ -380,6 +380,7 @@ export default function Chatbot({ storeConfig }: { storeConfig: StoreConfig }) {
               'fixed z-50 flex flex-col bg-store-bg shadow-elevated overflow-hidden',
               'bottom-0 left-0 right-0 rounded-t-2xl h-[75vh]',
               'md:bottom-24 md:right-4 md:left-auto md:w-96 md:rounded-2xl md:h-[600px]',
+              '[&]:min-h-0',
             )}
           >
             <style>{`
@@ -391,9 +392,9 @@ export default function Chatbot({ storeConfig }: { storeConfig: StoreConfig }) {
               .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
             `}</style>
 
-            <div data-chatbot-panel className="flex flex-col flex-1 min-h-0 overflow-hidden">
+            <div data-chatbot-panel className="flex flex-col h-full min-h-0 overflow-hidden">
               {/* Header */}
-              <div className="flex items-center justify-between px-4 py-3 border-b border-store-border bg-store-surface shrink-0">
+              <div className="flex items-center justify-between px-4 py-3 border-b border-store-border bg-store-surface flex-shrink-0">
                 <div className="flex items-center gap-2.5">
                   <div className="w-8 h-8 rounded-full flex items-center justify-center bg-accent">
                     <SparkleIcon className="w-4 h-4 text-accent-text" />
@@ -413,7 +414,7 @@ export default function Chatbot({ storeConfig }: { storeConfig: StoreConfig }) {
               </div>
 
               {/* Messages */}
-              <div className="flex-1 overflow-y-auto px-4 py-4 flex flex-col gap-3 min-h-0 overscroll-contain">
+              <div className="flex-1 overflow-y-auto px-4 py-4 flex flex-col gap-3 min-h-0 overscroll-contain" style={{ minHeight: 0 }}>
                 {messages.map((msg) => (
                   <MessageBubble
                     key={msg.id}
@@ -439,7 +440,7 @@ export default function Chatbot({ storeConfig }: { storeConfig: StoreConfig }) {
               {/* Input */}
               <form
                 onSubmit={onSend}
-                className="shrink-0 flex items-center gap-2 px-4 py-3 border-t border-store-border bg-store-surface"
+                className="flex-shrink-0 flex items-center gap-2 px-4 py-3 border-t border-store-border bg-store-surface"
               >
                 <input
                   ref={inputRef}
