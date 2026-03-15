@@ -12,7 +12,7 @@ const MessagesInbox = dynamic(
   {
     ssr: false,
     loading: () => (
-      <div className="p-6">
+      <div className="h-full overflow-hidden p-6">
         <div className="animate-pulse space-y-3">
           {Array(5)
             .fill(0)
@@ -48,7 +48,7 @@ export default function MessagesPage(): React.JSX.Element {
 
   if (isLoading) {
     return (
-      <div className="p-6">
+      <div className="h-full overflow-hidden p-6">
         <div className="animate-pulse space-y-3">
           {Array(5)
             .fill(0)
@@ -61,9 +61,11 @@ export default function MessagesPage(): React.JSX.Element {
   }
 
   return (
-    <MessagesInbox
-      initialConversations={data ?? []}
-      businessId={businessId}
-    />
+    <div className="h-full overflow-hidden flex flex-col min-h-0">
+      <MessagesInbox
+        initialConversations={data ?? []}
+        businessId={businessId}
+      />
+    </div>
   );
 }

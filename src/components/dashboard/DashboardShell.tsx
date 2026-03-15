@@ -427,7 +427,7 @@ export default function DashboardShell({
   };
 
   return (
-    <div className="min-h-screen bg-base flex flex-col">
+    <div className="h-screen bg-base flex flex-col overflow-hidden">
       {/* Impersonation banner */}
       {isImpersonating && (
         <div
@@ -534,7 +534,7 @@ export default function DashboardShell({
           </header>
 
           {/* Page content */}
-          <main className="flex-1 overflow-auto pb-20 md:pb-0">
+          <main className="flex-1 min-h-0 overflow-hidden pb-20 md:pb-0 flex flex-col">
             {children}
           </main>
         </div>

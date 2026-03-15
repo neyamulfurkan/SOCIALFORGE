@@ -348,11 +348,11 @@ export default function MessagesInbox({ initialConversations, businessId }: Mess
   // ─────────────────────────────────────────────
 
   return (
-    <div className="flex h-full overflow-hidden">
+    <div className="flex h-full overflow-hidden min-h-0">
       {/* ── Left column: conversation list ── */}
       <div
         className={`
-          w-full md:w-72 border-r border-border flex flex-col flex-shrink-0 bg-base
+          w-full md:w-72 border-r border-border flex flex-col flex-shrink-0 bg-base min-h-0
           ${mobileShowThread ? 'hidden md:flex' : 'flex'}
         `}
       >
@@ -417,7 +417,7 @@ export default function MessagesInbox({ initialConversations, businessId }: Mess
       {/* ── Right column: thread ── */}
       <div
         className={`
-          flex-1 flex flex-col min-w-0 bg-base
+          flex-1 flex flex-col min-w-0 min-h-0 overflow-hidden bg-base
           ${mobileShowThread ? 'flex' : 'hidden md:flex'}
         `}
       >
@@ -577,7 +577,7 @@ export default function MessagesInbox({ initialConversations, businessId }: Mess
             })()}
 
             {/* Messages list */}
-            <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3">
+            <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3 min-h-0">
               {messages.length === 0 && (
                 <p className="text-center text-text-tertiary text-sm py-8">No messages yet</p>
               )}
