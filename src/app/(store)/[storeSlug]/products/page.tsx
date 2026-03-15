@@ -121,7 +121,7 @@ export default async function ProductsPage({
   const hasPrev = page > 1;
 
   return (
-    <div className="max-w-7xl mx-auto px-4 py-8">
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 py-8">
 
         {/* Page header */}
         <div className="mb-6">
@@ -139,7 +139,7 @@ export default async function ProductsPage({
           </p>
         </div>
 
-        <div className="flex flex-col lg:flex-row gap-6 items-start">
+        <div className="flex flex-col lg:flex-row gap-6 items-start w-full">
 
           {/* ── Sidebar filters ── */}
           <aside className="w-full lg:w-52 flex-shrink-0 lg:sticky lg:top-[88px] lg:self-start lg:max-h-[calc(100vh-88px)] lg:overflow-y-auto">
@@ -184,7 +184,7 @@ export default async function ProductsPage({
                 >
                   Categories
                 </p>
-               <div className="flex flex-row lg:flex-col gap-2 overflow-x-auto pb-1 lg:pb-0 -mx-4 px-4 lg:mx-0 lg:px-0" style={{ scrollbarWidth: 'none' }}>
+               <div className="flex flex-row lg:flex-col gap-2 overflow-x-auto pb-1 lg:pb-0" style={{ scrollbarWidth: 'none' }}>
                   <a
                     href={`/${storeSlug}/products${search ? `?search=${encodeURIComponent(search)}` : ''}`}
                     className={cn(
@@ -222,7 +222,7 @@ export default async function ProductsPage({
           </aside>
 
           {/* ── Product grid ── */}
-          <div className="flex-1 min-w-0">
+          <div className="flex-1 min-w-0 w-full">
             <ProductGrid
               products={serializedProducts}
               storeSlug={storeSlug}

@@ -166,7 +166,7 @@ export default function ProductGrid({
 
   return (
     <motion.div
-      className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4"
+      className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-3 w-full"
       variants={containerVariants}
       initial="hidden"
       whileInView="visible"
