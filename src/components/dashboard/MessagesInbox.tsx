@@ -483,7 +483,7 @@ export default function MessagesInbox({ initialConversations, businessId }: Mess
                     target="_blank"
                     rel="noopener noreferrer"
                     className="text-text-tertiary hover:text-text-secondary transition-colors"
-                    title="Open in Facebook Business Suite"
+                    title="View in Meta Business Suite (click 'View profile' there to see Facebook profile)"
                   >
                     <ExternalLinkIcon className="w-3.5 h-3.5" />
                   </a>
