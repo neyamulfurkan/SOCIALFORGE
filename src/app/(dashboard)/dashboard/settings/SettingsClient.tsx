@@ -1137,7 +1137,7 @@ function MessengerSection({
     setConnectStatus('connecting');
     setConnectError(null);
     const redirectUri = encodeURIComponent(window.location.origin + '/api/auth/facebook/callback');
-    const scope = 'pages_messaging,pages_manage_posts,instagram_basic,instagram_content_publish,pages_read_engagement';
+    const scope = 'pages_messaging,pages_manage_posts,instagram_basic,instagram_content_publish,pages_read_engagement,pages_show_list,pages_manage_metadata';
     const popup = window.open(
       `https://www.facebook.com/dialog/oauth?client_id=${appId}&redirect_uri=${redirectUri}&scope=${scope}&response_type=code`,
       'MetaOAuth',

@@ -416,16 +416,44 @@ async function processMessagingEvent(
     let pausedSenderName: string | null = null;
     let pausedSenderAvatar: string | null = null;
     if (!existingConv?.senderName) {
+      const pageId = businessConfig.facebookPageId;
+      const pageToken = businessConfig.facebookPageToken;
+      // Strategy 1: Conversations API
       try {
-        const profileRes = await fetch(
-          `https://graph.facebook.com/v19.0/${senderId}?fields=name,profile_pic&access_token=${businessConfig.facebookPageToken}`,
+        const convRes = await fetch(
+          `https://graph.facebook.com/v19.0/${pageId}/conversations?user_id=${senderId}&fields=participants&access_token=${pageToken}`,
         );
-        if (profileRes.ok) {
-          const profile = await profileRes.json() as { name?: string; profile_pic?: string };
-          pausedSenderName = profile.name ?? null;
-          pausedSenderAvatar = profile.profile_pic ?? null;
+        const convData = await convRes.json() as {
+          data?: Array<{ participants?: { data?: Array<{ name: string; id: string }> } }>;
+          error?: { code?: number };
+        };
+        if (!convData.error) {
+          const participants = convData.data?.[0]?.participants?.data ?? [];
+          const userParticipant = participants.find((p) => p.id !== pageId);
+          if (userParticipant?.name) {
+            pausedSenderName = userParticipant.name;
+            pausedSenderAvatar = `https://ui-avatars.com/api/?name=${encodeURIComponent(userParticipant.name)}&background=7c3aed&color=fff&size=128&bold=true`;
+          }
         }
       } catch {}
+      // Strategy 2: Direct profile
+      if (!pausedSenderName) {
+        try {
+          const profileRes = await fetch(
+            `https://graph.facebook.com/v19.0/${senderId}?fields=name&access_token=${pageToken}`,
+          );
+          const profile = await profileRes.json() as { name?: string; error?: unknown };
+          if (!(profile as { error?: unknown }).error && profile.name) {
+            pausedSenderName = profile.name;
+            pausedSenderAvatar = `https://ui-avatars.com/api/?name=${encodeURIComponent(profile.name)}&background=7c3aed&color=fff&size=128&bold=true`;
+          }
+        } catch {}
+      }
+      // Strategy 3: Never show "Unknown"
+      if (!pausedSenderName) {
+        pausedSenderName = `Messenger User`;
+        pausedSenderAvatar = `https://ui-avatars.com/api/?name=M+U&background=6b7280&color=fff&size=128&bold=true`;
+      }
     } else {
       pausedSenderName = existingConv.senderName;
       pausedSenderAvatar = existingConv.senderAvatar;
@@ -654,18 +682,52 @@ const paymentMethodMap: Record<string, string> = {
   });
 
   if (!existingConvForProfile?.senderName) {
-    // New conversation or missing profile — fetch from Graph API
+    const pageId = businessConfig.facebookPageId;
+    const pageToken = businessConfig.facebookPageToken;
+    // Strategy 1: Conversations API (requires pages_read_engagement)
     try {
-      const profileRes = await fetch(
-        `https://graph.facebook.com/v19.0/${senderId}?fields=name,profile_pic&access_token=${businessConfig.facebookPageToken}`,
+      const convRes = await fetch(
+        `https://graph.facebook.com/v19.0/${pageId}/conversations?user_id=${senderId}&fields=participants&access_token=${pageToken}`,
       );
-      if (profileRes.ok) {
-        const profile = await profileRes.json() as { name?: string; profile_pic?: string };
-        senderName = profile.name ?? null;
-        senderAvatar = profile.profile_pic ?? null;
+      const convData = await convRes.json() as {
+        data?: Array<{ participants?: { data?: Array<{ name: string; id: string }> } }>;
+        error?: { code?: number; message?: string };
+      };
+      if (!convData.error) {
+        const participants = convData.data?.[0]?.participants?.data ?? [];
+        const userParticipant = participants.find((p) => p.id !== pageId);
+        if (userParticipant?.name) {
+          senderName = userParticipant.name;
+          senderAvatar = `https://ui-avatars.com/api/?name=${encodeURIComponent(userParticipant.name)}&background=7c3aed&color=fff&size=128&bold=true`;
+          console.log(`[Webhook] Strategy 1 resolved name: ${senderName}`);
+        }
+      } else {
+        console.warn(`[Webhook] Conversations API failed (${convData.error.code}): ${convData.error.message}`);
       }
-    } catch (profileErr) {
-      console.error('[Webhook] Failed to fetch sender profile:', profileErr);
+    } catch (e) {
+      console.error('[Webhook] Conversations API error:', e);
+    }
+    // Strategy 2: Direct user profile
+    if (!senderName) {
+      try {
+        const profileRes = await fetch(
+          `https://graph.facebook.com/v19.0/${senderId}?fields=name&access_token=${pageToken}`,
+        );
+        const profile = await profileRes.json() as { name?: string; error?: { code?: number } };
+        if (!profile.error && profile.name) {
+          senderName = profile.name;
+          senderAvatar = `https://ui-avatars.com/api/?name=${encodeURIComponent(profile.name)}&background=7c3aed&color=fff&size=128&bold=true`;
+          console.log(`[Webhook] Strategy 2 resolved name: ${senderName}`);
+        }
+      } catch (e) {
+        console.error('[Webhook] Direct profile fetch error:', e);
+      }
+    }
+    // Strategy 3: Never show "Unknown"
+    if (!senderName) {
+      senderName = `Messenger User`;
+      senderAvatar = `https://ui-avatars.com/api/?name=M+U&background=6b7280&color=fff&size=128&bold=true`;
+      console.warn(`[Webhook] Could not resolve name for ${senderId} — using fallback`);
     }
   } else {
     senderName = existingConvForProfile.senderName;
