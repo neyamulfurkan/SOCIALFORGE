@@ -299,7 +299,18 @@ function ScheduledTab({
 
   if (posts.length === 0 && !listView) {
     return (
-      <EmptyState message="No scheduled posts. Approve a pending post and choose a date to schedule it." />
+      <div className="flex flex-col items-center justify-center py-20 text-center gap-3">
+        <div className="w-14 h-14 rounded-full bg-accent/10 flex items-center justify-center mb-2">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-accent">
+            <circle cx="12" cy="12" r="10"/>
+            <path d="M12 6v6l4 2"/>
+          </svg>
+        </div>
+        <p className="text-text-primary font-medium">Auto-publishing coming soon</p>
+        <p className="text-text-secondary text-sm max-w-sm">
+          You can schedule posts now — they will be published automatically once the scheduler is live.
+        </p>
+      </div>
     );
   }
 
