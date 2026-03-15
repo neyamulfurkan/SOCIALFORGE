@@ -488,7 +488,7 @@ export default function StoreShell({ storeConfig, storeSlug, children }: StoreSh
           onSearchOpen={() => setSearchOpen(true)}
           scrolled={scrolled}
         />
-        <main className="pb-28 md:pb-0">{children}</main>
+        <main className="pt-[72px] pb-28 md:pb-0">{children}</main>
         <BottomNav
           storeSlug={storeSlug}
           itemCount={itemCount}
