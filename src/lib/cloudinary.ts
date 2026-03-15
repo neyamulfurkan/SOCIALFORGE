@@ -17,11 +17,12 @@ export async function generateUploadSignature(folder: string): Promise<{
   uploadPreset: string;
 }> {
   const timestamp = Math.floor(Date.now() / 1000);
-  const uploadPreset = process.env.CLOUDINARY_UPLOAD_PRESET as string;
+  // Only sign folder and timestamp — do NOT include upload_preset in signed
+  // params because the client sends it as an unsigned field separately.
+  // Including it here but not in the client request causes signature mismatch.
   const paramsToSign: Record<string, string | number> = {
     folder,
     timestamp,
-    upload_preset: uploadPreset,
   };
 
   const signature = cloudinary.utils.api_sign_request(
@@ -35,7 +36,7 @@ export async function generateUploadSignature(folder: string): Promise<{
     cloudName: process.env.CLOUDINARY_CLOUD_NAME as string,
     apiKey: process.env.CLOUDINARY_API_KEY as string,
     folder,
-    uploadPreset,
+    uploadPreset: process.env.CLOUDINARY_UPLOAD_PRESET as string,
   };
 }
 

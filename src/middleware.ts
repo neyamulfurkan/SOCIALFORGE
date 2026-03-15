@@ -19,6 +19,7 @@ export default auth(function middleware(req) {
       /^\/api\/admin\/businesses\/[^/]+\/config$/,   // PATCH own config
       /^\/api\/admin\/change-password$/,             // POST change password
       /^\/api\/admin\/platform-config$/,             // POST own API keys
+      /^\/api\/admin\/business-config$/,             // GET/PATCH own business config
     ];
     if (selfServicePatterns.some((p) => p.test(nextUrl.pathname))) {
       return NextResponse.next();

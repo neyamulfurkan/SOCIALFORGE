@@ -93,6 +93,7 @@ type UploadSignature = {
   cloudName: string;
   apiKey: string;
   uploadPreset: string;
+  folder: string;
 };
 
 async function fetchUploadSignature(): Promise<UploadSignature> {
@@ -111,7 +112,12 @@ async function uploadToCloudinary(
   return new Promise((resolve, reject) => {
     const fd = new FormData();
     fd.append('file', file);
-    fd.append('upload_preset', sig.uploadPreset);
+    fd.append('api_key', sig.apiKey);
+    fd.append('timestamp', String(sig.timestamp));
+    fd.append('signature', sig.signature);
+    fd.append('folder', sig.folder);
+    // upload_preset is NOT included when using signed uploads —
+    // signed uploads use api_key + signature instead
 
     const xhr = new XMLHttpRequest();
     xhr.open('POST', `https://api.cloudinary.com/v1_1/${sig.cloudName}/image/upload`);
