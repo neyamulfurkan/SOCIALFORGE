@@ -130,23 +130,56 @@ async function sendMessengerStatusNotification(
   businessId: string,
   orderNumber: string,
   newStatus: string,
+  order: {
+    total: number;
+    deliveryAddress: string;
+    paymentMethod: string;
+    items: Array<{ productName: string; quantity: number; price: number }>;
+  },
 ): Promise<void> {
   try {
     const config = await getBusinessConfig(businessId);
     if (!config?.facebookPageToken) return;
+
+    const business = await prisma.business.findUnique({
+      where: { id: businessId },
+      select: { slug: true, name: true },
+    });
+
     const statusLabel = STATUS_LABELS[newStatus] ?? newStatus;
-    const text = `Your order #${orderNumber} has been updated to: ${statusLabel}.`;
-    await fetch(
-      `https://graph.facebook.com/v19.0/me/messages?access_token=${config.facebookPageToken}`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          recipient: { id: senderId },
-          message: { text },
-        }),
-      },
-    );
+    const trackingUrl = `${process.env.NEXTAUTH_URL ?? 'https://socialforge3.vercel.app'}/${business?.slug ?? ''}/track?order=${orderNumber}`;
+
+    const statusMessages: Record<string, string> = {
+      CONFIRMED: `✅ Order Confirmed!\n\nYour order #${orderNumber} has been confirmed and is being prepared.`,
+      PROCESSING: `🔄 Order Processing!\n\nYour order #${orderNumber} is now being processed and packed.`,
+      SHIPPED: `🚚 Order Shipped!\n\nGreat news! Your order #${orderNumber} is on its way to you.`,
+      DELIVERED: `🎉 Order Delivered!\n\nYour order #${orderNumber} has been delivered. Thank you for shopping with us!`,
+      CANCELLED: `❌ Order Cancelled\n\nYour order #${orderNumber} has been cancelled. Please contact us if you have any questions.`,
+    };
+
+    const itemLines = order.items
+      .map((i) => `• ${i.productName} x${i.quantity} — ৳${Number(i.price * i.quantity).toLocaleString()}`)
+      .join('\n');
+
+    const baseMessage = statusMessages[newStatus] ?? `📦 Order Update\n\nYour order #${orderNumber} status: ${statusLabel}`;
+
+    const fullMessage =
+      `${baseMessage}\n\n` +
+      `📋 Order Summary:\n${itemLines}\n\n` +
+      `💰 Total: ৳${Number(order.total).toLocaleString()}\n` +
+      `📍 Delivery to: ${order.deliveryAddress}\n` +
+      `💳 Payment: ${order.paymentMethod}\n\n` +
+      `🔍 Track your order: ${trackingUrl}`;
+
+    await fetch('https://graph.facebook.com/v19.0/me/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        recipient: { id: senderId },
+        message: { text: fullMessage },
+        access_token: config.facebookPageToken,
+      }),
+    });
   } catch (err) {
     console.error('Messenger status notification failed:', err);
   }
@@ -745,6 +778,16 @@ export async function PATCH(
           businessId,
           existingOrder.orderNumber,
           newStatus,
+          {
+            total: Number(existingOrder.total),
+            deliveryAddress: existingOrder.deliveryAddress,
+            paymentMethod: existingOrder.paymentMethod,
+            items: existingOrder.items.map((i) => ({
+              productName: i.productName,
+              quantity: i.quantity,
+              price: Number(i.price),
+            })),
+          },
         );
       } else {
         await sendOrderStatusEmail(updatedOrder, storeConfig);
