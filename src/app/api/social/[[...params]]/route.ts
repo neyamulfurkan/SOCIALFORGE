@@ -85,6 +85,7 @@ async function generateCaptions(
   category: string,
   description: string | null,
   price: number,
+  businessId: string,
   toneHint?: string,
   lengthHint?: string,
 ): Promise<{ facebookCaption: string; instagramCaption: string }> {
@@ -97,7 +98,26 @@ async function generateCaptions(
     ? 'Make Facebook caption 200-250 words and Instagram 120-150 words.'
     : 'Facebook caption: 150-200 words. Instagram caption: 80-100 words.';
 
-      const storeUrl = process.env.NEXTAUTH_URL ?? 'https://socialforge3.vercel.app';
+      const baseUrl = process.env.NEXTAUTH_URL ?? 'https://socialforge3.vercel.app';
+
+  // Build the specific product page URL for this business
+  // This requires the business slug and product slug to be passed in
+  // We use the businessId to look up the slug from DB
+  const business = await prisma.business.findUnique({
+    where: { id: businessId },
+    select: { slug: true },
+  });
+  const businessSlug = business?.slug ?? '';
+  
+  // Generate a URL-safe product slug from the product name
+  const productUrlSlug = productName
+    .toLowerCase()
+    .replace(/[^a-z0-9\s-]/g, '')
+    .trim()
+    .replace(/\s+/g, '-');
+
+  const productUrl = `${baseUrl}/${businessSlug}/products/${productUrlSlug}`;
+  const storeUrl = `${baseUrl}/${businessSlug}`;
 
   // Unicode bold converter — makes text appear bold on Facebook/Instagram
   // These are Mathematical Bold characters (U+1D400 range) that render
@@ -140,7 +160,9 @@ Divider line: ━━━━━━━━━━━━━━━━━━━━
 [blank line]
 CTA line: Use this format exactly: 🛍️ 𝗢𝗿𝗱𝗲𝗿 𝗡𝗼𝘄 👇
 [blank line]
-Store URL on its own line (Facebook renders this as a clickable card): ${storeUrl}
+Product URL on its own line — this is the direct link to THIS specific product page. Use this exact URL: ${productUrl}
+[blank line]
+Divider line: ─ ─ ─ ─ ─ ─ ─ ─ ─ ─
 [blank line]
 Hashtag line: 6-8 hashtags, mix of English and Bengali, most popular first. Keep on one line.
 
@@ -154,6 +176,8 @@ Line 2: [bold price] only
 3 benefit lines each starting with ◾
 [blank line]
 CTA: 🔗 𝗧𝗮𝗽 𝗹𝗶𝗻𝗸 𝗶𝗻 𝗯𝗶𝗼 𝘁𝗼 𝗼𝗿𝗱𝗲𝗿!
+[blank line]
+─ ─ ─ ─ ─ ─ ─ ─ ─ ─
 [blank line]
 Up to 28 hashtags on one line — mix popular food/lifestyle/local tags ranked by reach.
 
@@ -503,6 +527,7 @@ export async function POST(
         product.category,
         product.description,
         Number(product.price),
+        businessId,
       );
     } catch (err) {
       console.error('Caption generation failed:', err);
@@ -589,12 +614,13 @@ export async function POST(
 
     let captions: { facebookCaption: string; instagramCaption: string };
     try {
-      captions = await generateCaptions(
+            captions = await generateCaptions(
         groqKey,
         productName,
         category,
         description,
         price,
+        businessId,
         tone,
         length,
       );
