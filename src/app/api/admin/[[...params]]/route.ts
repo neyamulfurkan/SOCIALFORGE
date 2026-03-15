@@ -622,21 +622,41 @@ export async function POST(
     const { flagKey, enabled, businessId } = parsed.data;
     const configKey = `flag:${flagKey}`;
 
-    await prisma.platformConfig.upsert({
-      where: {
-        businessId_key: {
-          businessId: businessId ?? null as unknown as string,
-          key: configKey,
+    if (businessId) {
+      await prisma.platformConfig.upsert({
+        where: {
+          businessId_key: {
+            businessId,
+            key: configKey,
+          },
         },
-      },
-      update: { value: enabled ? 'true' : 'false' },
-      create: {
-        businessId: businessId ?? null,
-        key: configKey,
-        value: enabled ? 'true' : 'false',
-      },
-    });
-
+        update: { value: enabled ? 'true' : 'false' },
+        create: {
+          businessId,
+          key: configKey,
+          value: enabled ? 'true' : 'false',
+        },
+      });
+    } else {
+      // Global flag — businessId is null, compound unique won't work with null
+      const existing = await prisma.platformConfig.findFirst({
+        where: { businessId: null, key: configKey },
+      });
+      if (existing) {
+        await prisma.platformConfig.update({
+          where: { id: existing.id },
+          data: { value: enabled ? 'true' : 'false' },
+        });
+      } else {
+        await prisma.platformConfig.create({
+          data: {
+            businessId: null,
+            key: configKey,
+            value: enabled ? 'true' : 'false',
+          },
+        });
+      }
+    }
     // Invalidate flags cache
     if (businessId) {
       await redis.del(`flags:${businessId}`).catch(() => {});
