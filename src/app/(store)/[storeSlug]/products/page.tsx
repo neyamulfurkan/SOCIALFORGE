@@ -5,7 +5,6 @@ import type { Metadata } from 'next';
 import { prisma } from '@/lib/db';
 import { buildCloudinaryUrl, cn } from '@/lib/utils';
 import { IMAGE_TRANSFORMS } from '@/lib/constants';
-import StoreShell from '@/components/store/StoreShell';
 import ProductGrid from '@/components/store/ProductGrid';
 import ProductCard from '@/components/store/ProductCard';
 import type { StoreConfig, ProductWithVariants } from '@/lib/types';
@@ -121,51 +120,8 @@ export default async function ProductsPage({
   const hasMore = page < totalPages;
   const hasPrev = page > 1;
 
-  // Build StoreConfig
-  const storeConfig: StoreConfig = {
-    id: business.id,
-    name: business.name,
-    slug: business.slug,
-    logo: business.logo ?? undefined,
-    tagline: business.tagline ?? undefined,
-    accentColor: business.accentColor,
-    heroImages: business.heroImages ?? [],
-    domain: business.domain ?? undefined,
-    config: {
-      chatbotPersonality: business.config.chatbotPersonality,
-      chatbotWelcomeMessage: business.config.chatbotWelcomeMessage,
-      chatbotLanguage: business.config.chatbotLanguage,
-      knowledgeBase: business.config.knowledgeBase as Array<{
-        question: string;
-        answer: string;
-      }>,
-      deliveryCharge: Number(business.config.deliveryCharge),
-      freeDeliveryThreshold: business.config.freeDeliveryThreshold
-        ? Number(business.config.freeDeliveryThreshold)
-        : null,
-      deliveryTimeMessage: business.config.deliveryTimeMessage ?? null,
-      cashOnDelivery: business.config.cashOnDelivery,
-      bkashNumber: business.config.bkashNumber ?? null,
-      bkashInstructions: business.config.bkashInstructions ?? null,
-      nagadNumber: business.config.nagadNumber ?? null,
-      nagadInstructions: business.config.nagadInstructions ?? null,
-      stripePublicKey: business.config.stripePublicKey ?? null,
-      stripeSecretKey: business.config.stripeSecretKey ?? null,
-      facebookPageId: business.config.facebookPageId ?? null,
-      facebookPageToken: business.config.facebookPageToken ?? null,
-      instagramAccountId: business.config.instagramAccountId ?? null,
-      messengerEnabled: business.config.messengerEnabled,
-      socialAutoApprove: business.config.socialAutoApprove,
-      defaultPostTime: business.config.defaultPostTime,
-      notificationEmail: business.config.notificationEmail ?? null,
-      notifyOnOrder: business.config.notifyOnOrder,
-      notifyOnMessage: business.config.notifyOnMessage,
-    },
-  };
-
   return (
-    <StoreShell storeConfig={storeConfig} storeSlug={storeSlug}>
-      <div className="max-w-7xl mx-auto px-4 py-8">
+    <div className="max-w-7xl mx-auto px-4 py-8">
 
         {/* Page header */}
         <div className="mb-6">
@@ -338,7 +294,6 @@ export default async function ProductsPage({
           </div>
         </div>
       </div>
-    </StoreShell>
   );
 }
 
