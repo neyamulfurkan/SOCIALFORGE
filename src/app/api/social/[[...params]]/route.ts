@@ -97,18 +97,73 @@ async function generateCaptions(
     ? 'Make Facebook caption 200-250 words and Instagram 120-150 words.'
     : 'Facebook caption: 150-200 words. Instagram caption: 80-100 words.';
 
-  const prompt = `You are a social media copywriter for a small business. Generate captions for a new product listing.
+      const storeUrl = process.env.NEXTAUTH_URL ?? 'https://socialforge3.vercel.app';
+
+  // Unicode bold converter — makes text appear bold on Facebook/Instagram
+  // These are Mathematical Bold characters (U+1D400 range) that render
+  // as bold on all social platforms without any markup.
+  function toBold(text: string): string {
+    return text.split('').map(c => {
+      const code = c.codePointAt(0) ?? 0;
+      if (code >= 65 && code <= 90) return String.fromCodePoint(code - 65 + 0x1D400);  // A-Z
+      if (code >= 97 && code <= 122) return String.fromCodePoint(code - 97 + 0x1D41A); // a-z
+      if (code >= 48 && code <= 57) return String.fromCodePoint(code - 48 + 0x1D7CE);  // 0-9
+      return c;
+    }).join('');
+  }
+
+  const boldName = toBold(productName);
+  const boldPrice = toBold('৳' + price.toLocaleString());
+
+  const prompt = `You are a world-class social media copywriter for a small business in Bangladesh. Generate modern, scroll-stopping captions for a new product listing.
 
 Product: ${productName}
 Category: ${category}
 Description: ${description ?? 'N/A'}
-Price: ৳${price}
+Price: ৳${price.toLocaleString()}
+Bold product name (use this exactly): ${boldName}
+Bold price (use this exactly): ${boldPrice}
+Store link: ${storeUrl}
 
 ${toneInstruction}
 ${lengthInstruction}
 
-Facebook caption: conversational, contextual, 5-8 relevant hashtags at the end.
-Instagram caption: punchy, visual-focused, up to 30 ranked hashtags at the end.
+FACEBOOK CAPTION — follow this exact structure:
+
+Line 1: A single bold product + price header using the bold versions provided above. Format: [bold name] ── [bold price]
+[blank line]
+Line 2-4: A short punchy hook sentence (1 line). Then 1-2 lines describing the product vibe — make it feel desirable, not just descriptive. Use line breaks between each sentence.
+[blank line]
+Section: 4 benefit lines, each starting with a colored circle emoji followed by a short crisp benefit. Use these circle emojis: 🔵 🟢 🟡 🔴 — one per line. Keep each benefit under 6 words.
+[blank line]
+Divider line: ━━━━━━━━━━━━━━━━━━━━
+[blank line]
+CTA line: Use this format exactly: 🛍️ 𝗢𝗿𝗱𝗲𝗿 𝗡𝗼𝘄 👇
+[blank line]
+Store URL on its own line (Facebook renders this as a clickable card): ${storeUrl}
+[blank line]
+Hashtag line: 6-8 hashtags, mix of English and Bengali, most popular first. Keep on one line.
+
+INSTAGRAM CAPTION — follow this exact structure:
+
+Line 1: Eye-catching opener emoji + bold product name + bold price. Format: ✨ [bold name] ✨
+Line 2: [bold price] only
+[blank line]
+2-3 short punchy lines about the product. Each line starts with a relevant emoji. Make it feel aspirational.
+[blank line]
+3 benefit lines each starting with ◾
+[blank line]
+CTA: 🔗 𝗧𝗮𝗽 𝗹𝗶𝗻𝗸 𝗶𝗻 𝗯𝗶𝗼 𝘁𝗼 𝗼𝗿𝗱𝗲𝗿!
+[blank line]
+Up to 28 hashtags on one line — mix popular food/lifestyle/local tags ranked by reach.
+
+IMPORTANT RULES:
+- Use the exact bold unicode characters provided for the product name and price — copy them character by character
+- Never use markdown like ** or __ 
+- The ━━━ divider must appear exactly as shown
+- The 𝗢𝗿𝗱𝗲𝗿 𝗡𝗼𝘄 and 𝗧𝗮𝗽 𝗹𝗶𝗻𝗸 text must use these exact unicode bold characters as shown
+- Keep the whole caption scannable — short lines, lots of whitespace
+- Make it feel premium, modern, and local at the same time
 
 Respond ONLY with valid JSON in this exact shape, no markdown, no extra keys:
 {"facebookCaption":"...","instagramCaption":"..."}`;
