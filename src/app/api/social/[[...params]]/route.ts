@@ -60,19 +60,31 @@ function buildImageUrls(
 ): { facebook: string[]; instagram: string[] } {
   const cloudName = process.env.CLOUDINARY_CLOUD_NAME ?? '';
 
-  const transform = (img: string, transform: string): string => {
-    // If already a full Cloudinary URL, insert the transform
+  const transform = (img: string, t: string): string => {
     if (img.startsWith('https://res.cloudinary.com/')) {
-      return img.replace('/image/upload/', `/image/upload/${transform}/`);
+      // Avoid double-transforming — remove any existing transform first
+      const uploadMarker = '/image/upload/';
+      const idx = img.indexOf(uploadMarker);
+      if (idx === -1) return img;
+      const base = img.slice(0, idx + uploadMarker.length);
+      const rest = img.slice(idx + uploadMarker.length);
+      // Strip any existing transform segments (they contain commas or underscores)
+      const parts = rest.split('/');
+      const publicIdParts = parts.filter(
+        (p) => !p.includes(',') && !p.includes('_') && !/^v\d+$/.test(p),
+      );
+      const publicId = publicIdParts.join('/');
+      return `${base}${t}/${publicId}`;
     }
-    // Otherwise treat as a public ID
-    return `https://res.cloudinary.com/${cloudName}/image/upload/${transform}/${img}`;
+    return `https://res.cloudinary.com/${cloudName}/image/upload/${t}/${img}`;
   };
 
   return {
-    facebook: productImages.map((img) =>
-      transform(img, IMAGE_TRANSFORMS.FACEBOOK_WIDE),
+    // Facebook: first image as 16:9 wide, rest as 1:1 square for gallery
+    facebook: productImages.map((img, i) =>
+      transform(img, i === 0 ? IMAGE_TRANSFORMS.FACEBOOK_WIDE : IMAGE_TRANSFORMS.FACEBOOK_SQUARE),
     ),
+    // Instagram: all as 4:5 portrait (best engagement ratio)
     instagram: productImages.map((img) =>
       transform(img, IMAGE_TRANSFORMS.INSTAGRAM_PORTRAIT),
     ),
@@ -181,13 +193,18 @@ CTA: 🔗 𝗧𝗮𝗽 𝗹𝗶𝗻𝗸 𝗶𝗻 𝗯𝗶𝗼 𝘁𝗼 𝗼𝗿�
 [blank line]
 Up to 28 hashtags on one line — mix popular food/lifestyle/local tags ranked by reach.
 
-IMPORTANT RULES:
-- Use the exact bold unicode characters provided for the product name and price — copy them character by character
-- Never use markdown like ** or __ 
-- The ━━━ divider must appear exactly as shown
-- The 𝗢𝗿𝗱𝗲𝗿 𝗡𝗼𝘄 and 𝗧𝗮𝗽 𝗹𝗶𝗻𝗸 text must use these exact unicode bold characters as shown
-- Keep the whole caption scannable — short lines, lots of whitespace
-- Make it feel premium, modern, and local at the same time
+STRICT RULES — violations will break the post:
+1. Use the EXACT bold unicode characters provided for name and price — copy them exactly
+2. NEVER use markdown ** or __ or any HTML
+3. The ━━━━━━━━━━━━━━━━━━━ divider must appear exactly as shown — copy it
+4. The 𝗢𝗿𝗱𝗲𝗿 𝗡𝗼𝘄 text must use these exact unicode bold characters as shown — copy it
+5. The 𝗧𝗮𝗽 𝗹𝗶𝗻𝗸 𝗶𝗻 𝗯𝗶𝗼 text must use these exact unicode bold characters as shown — copy it
+6. Every blank line is REQUIRED — do not skip any blank lines
+7. The product URL must be the EXACT URL provided — do not modify it
+8. Hashtags must be SEPARATED from the URL by a blank line and the ─ ─ ─ divider
+9. Keep every benefit bullet under 6 words — short and punchy
+10. The caption must feel premium, modern, and local to Bangladesh
+11. In the JSON output, use \\n for newlines — do not use actual line breaks inside the JSON string
 
 Respond ONLY with valid JSON in this exact shape, no markdown, no extra keys:
 {"facebookCaption":"...","instagramCaption":"..."}`;
