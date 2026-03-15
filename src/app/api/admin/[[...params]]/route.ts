@@ -765,12 +765,12 @@ export async function PATCH(
     isBusinessOwner &&
     session.user.businessId === resourceId;
 
-  // Allow business-config route for any authenticated business owner
-  // (no resourceId in URL — uses session businessId instead)
   const isBusinessConfigRoute = resource === 'business-config' && isBusinessOwner;
 
+  console.log('[PATCH admin] resource:', resource, 'resourceId:', resourceId, 'role:', session.user.role, 'isBusinessConfigRoute:', isBusinessConfigRoute);
+
   if (!isSuperAdmin && !isOwnerOfBusiness && !isBusinessConfigRoute) {
-    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    return NextResponse.json({ error: 'Forbidden', debug: { resource, resourceId, role: session.user.role } }, { status: 403 });
   }
 
   let body: unknown;
