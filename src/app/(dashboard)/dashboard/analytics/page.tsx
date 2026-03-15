@@ -95,7 +95,7 @@ function KeyMetricsRow({ metrics }: { metrics: KeyMetrics }) {
           className="bg-surface border border-border rounded-lg p-5"
         >
           <p className="text-text-secondary text-sm mb-1">{card.label}</p>
-          <p className="text-2xl font-bold tabular-nums">{card.value}</p>
+          <p className="text-2xl font-bold tabular-nums text-text-primary">{card.value}</p>
         </div>
       ))}
     </div>
@@ -168,10 +168,10 @@ export default function AnalyticsPage() {
   const analyticsData = data?.data ?? null;
 
   return (
-    <div className="p-6 max-w-7xl mx-auto">
+    <div className="p-6 max-w-7xl mx-auto overflow-y-auto h-full">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
-        <h1 className="text-2xl font-bold tracking-tight">Analytics</h1>
+        <h1 className="text-2xl font-bold tracking-tight text-text-primary">Analytics</h1>
 
         {/* Date range selector */}
         <div className="flex flex-wrap gap-2">

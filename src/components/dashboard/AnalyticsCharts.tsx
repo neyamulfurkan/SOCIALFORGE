@@ -90,7 +90,7 @@ function ChartSection({
 }) {
   return (
     <div className="bg-surface border border-border rounded-lg p-6">
-      <h2 className="text-base font-semibold mb-4">{title}</h2>
+      <h2 className="text-base font-semibold mb-4 text-text-primary">{title}</h2>
       {children}
     </div>
   );
