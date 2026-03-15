@@ -81,8 +81,9 @@ const businessStatusSchema = z.object({
 });
 
 const businessPlanSchema = z.object({
-  plan: z.enum(['TRIAL', 'STARTER', 'PRO']),
+  plan: z.enum(['TRIAL', 'STARTER', 'PRO']).optional(),
   planExpiresAt: z.string().datetime().optional().nullable(),
+  pause: z.boolean().optional(),
 });
 
 // ─────────────────────────────────────────────
@@ -899,14 +900,20 @@ export async function PATCH(
       return NextResponse.json({ error: 'Validation failed' }, { status: 400 });
     }
 
+    const updateData: Record<string, unknown> = {};
+    if (parsed.data.plan) updateData.plan = parsed.data.plan;
+    if ('planExpiresAt' in parsed.data) {
+      updateData.planExpiresAt = parsed.data.planExpiresAt
+        ? new Date(parsed.data.planExpiresAt)
+        : null;
+    }
+    if (parsed.data.pause) {
+      updateData.status = 'SUSPENDED';
+    }
+
     const updated = await prisma.business.update({
       where: { id: resourceId },
-      data: {
-        plan: parsed.data.plan,
-        planExpiresAt: parsed.data.planExpiresAt
-          ? new Date(parsed.data.planExpiresAt)
-          : null,
-      },
+      data: updateData,
     });
 
     await logActivity(

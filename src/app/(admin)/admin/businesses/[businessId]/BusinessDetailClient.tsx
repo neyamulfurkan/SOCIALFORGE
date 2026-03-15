@@ -384,7 +384,7 @@ function SubscriptionManager({ business }: { business: FullBusiness }) {
                 const expires = new Date();
                 expires.setDate(expires.getDate() + 7);
                 callPlan(
-                  { planExpiresAt: expires.toISOString() },
+                  { plan: business.plan, planExpiresAt: expires.toISOString() },
                   'extend-trial',
                 );
               }}
