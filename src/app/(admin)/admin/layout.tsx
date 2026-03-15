@@ -18,8 +18,8 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   }
 
   return (
-    <div className="min-h-screen bg-base flex">
-      <aside className="w-60 border-r border-border flex-shrink-0 flex flex-col">
+    <div className="h-screen bg-base flex overflow-hidden">
+      <aside className="w-60 border-r border-border flex-shrink-0 flex flex-col sticky top-0 h-screen overflow-y-auto">
         <div className="p-6 border-b border-border">
           <h1 className="font-bold text-lg text-text-primary">Admin Panel</h1>
           <p className="text-xs text-text-secondary mt-0.5">Platform Operator</p>
