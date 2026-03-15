@@ -226,7 +226,19 @@ async function deleteInstagramPost(
 // AUTH HELPER
 // ─────────────────────────────────────────────
 
-async function getAuthenticatedBusinessId(): Promise<string | null> {
+async function getAuthenticatedBusinessId(req?: NextRequest): Promise<string | null> {
+  // Allow internal server-to-server calls from the products route
+  if (req) {
+    const internalSecret = req.headers.get('x-internal-secret');
+    const internalBusinessId = req.headers.get('x-internal-business-id');
+    if (
+      internalSecret &&
+      internalSecret === (process.env.CRON_SECRET ?? '') &&
+      internalBusinessId
+    ) {
+      return internalBusinessId;
+    }
+  }
   const session = await auth();
   return session?.user?.businessId ?? null;
 }
@@ -342,7 +354,7 @@ export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ params?: string[] }> },
 ): Promise<NextResponse> {
-  const businessId = await getAuthenticatedBusinessId();
+  const businessId = await getAuthenticatedBusinessId(req);
   if (!businessId) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }

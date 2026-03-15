@@ -137,10 +137,17 @@ async function createProductWithSlug(
 
 function triggerSocialGeneration(productId: string, businessId: string): void {
   // fire-and-forget — do not await
-  fetch(`${process.env.NEXTAUTH_URL ?? 'http://localhost:3000'}/api/social`, {
+  // Call the internal API with the correct path and a server-side auth header
+  fetch(`${process.env.NEXTAUTH_URL ?? 'http://localhost:3000'}/api/social/generate`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ productId, businessId }),
+    headers: {
+      'Content-Type': 'application/json',
+      // Pass businessId in a custom header so the social route can
+      // authenticate this internal server-to-server call without a session cookie
+      'x-internal-business-id': businessId,
+      'x-internal-secret': process.env.CRON_SECRET ?? '',
+    },
+    body: JSON.stringify({ productId }),
   }).catch((err) => {
     console.error('Social generation trigger failed:', err);
   });
