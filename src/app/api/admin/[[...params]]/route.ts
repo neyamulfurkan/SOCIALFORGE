@@ -161,25 +161,33 @@ export async function GET(
         return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
       }
 
-      const [businessConfigs, globalConfigs] = await Promise.all([
-        prisma.platformConfig.findMany({
-          where: { businessId: businessIdParam },
-          orderBy: { key: 'asc' },
-        }),
-        prisma.platformConfig.findMany({
+      const businessConfigs = await prisma.platformConfig.findMany({
+        where: { businessId: businessIdParam },
+        orderBy: { key: 'asc' },
+      });
+
+      // Never expose global platform keys to business owners
+      // Only super admins get the merged global+business view
+      if (isAdmin) {
+        const globalConfigs = await prisma.platformConfig.findMany({
           where: { businessId: null },
           orderBy: { key: 'asc' },
-        }),
-      ]);
-
-      const merged = new Map<string, string>();
-      for (const c of globalConfigs) merged.set(c.key, c.value);
-      for (const c of businessConfigs) merged.set(c.key, c.value);
+        });
+        const merged = new Map<string, string>();
+        for (const c of globalConfigs) merged.set(c.key, c.value);
+        for (const c of businessConfigs) merged.set(c.key, c.value);
+        return NextResponse.json({
+          data: Array.from(merged.entries()).map(([key, value]) => ({
+            key,
+            value,
+          })),
+        });
+      }
 
       return NextResponse.json({
-        data: Array.from(merged.entries()).map(([key, value]) => ({
-          key,
-          value,
+        data: businessConfigs.map((c) => ({
+          key: c.key,
+          value: c.value,
         })),
       });
     }

@@ -1648,7 +1648,9 @@ export function SettingsClient({
   const [activeSection, setActiveSection] = useState('branding');
   const { save, getState } = useSave(businessId);
 
-const visibleNav = NAV_ITEMS;
+const visibleNav = isSuperAdmin
+    ? NAV_ITEMS
+    : NAV_ITEMS.filter((item) => item.id !== 'apikeys');
 
   return (
     <div className="flex min-h-screen">
@@ -1757,7 +1759,7 @@ const visibleNav = NAV_ITEMS;
         {activeSection === 'security' && (
           <SecuritySection businessId={businessId} />
         )}
-         {activeSection === 'apikeys' && (
+         {activeSection === 'apikeys' && isSuperAdmin && (
           <ApiKeysSection businessId={businessId} />
         )}      </main>
     </div>
