@@ -599,11 +599,13 @@ function RulesTab({ businessId }: { businessId: string }) {
       const res = await fetch('/api/admin/business-config', {
         credentials: 'include',
       });
+      if (!res.ok) throw new Error('Failed to fetch config');
       const json = await res.json();
       return json.data ?? {};
     },
     enabled: !!businessId,
     staleTime: 60_000,
+    retry: 2,
   });
 
   const [autoApprove, setAutoApprove] = useState<boolean | null>(null);
@@ -754,7 +756,7 @@ function RulesTab({ businessId }: { businessId: string }) {
         )}
       </div>
 
-      {!facebookConnected && (
+      {!isLoading && config && !facebookConnected && (
         <div className="bg-warning/10 border border-warning/20 rounded-lg p-4 text-sm text-warning">
           No Facebook Page connected. Connect one in{' '}
           <a href="/dashboard/settings#social" className="underline font-medium">
