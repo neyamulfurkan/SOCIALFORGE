@@ -84,6 +84,33 @@ export const RATE_LIMITS = {
 
 export const ORDER_NUMBER_PREFIX = 'SF';
 
+export const PLAN_LIMITS = {
+  TRIAL: {
+    maxProducts: 10,
+    messengerBot: false,
+    socialPosting: false,
+    customDomain: false,
+    analytics: false,
+    trialDays: 14,
+  },
+  STARTER: {
+    maxProducts: 50,
+    messengerBot: true,
+    socialPosting: true,
+    customDomain: false,
+    analytics: true,
+    trialDays: null,
+  },
+  PRO: {
+    maxProducts: Infinity,
+    messengerBot: true,
+    socialPosting: true,
+    customDomain: true,
+    analytics: true,
+    trialDays: null,
+  },
+} as const;
+
 export const IMAGE_TRANSFORMS = {
   PRODUCT: 'c_fill,ar_3:4,f_auto,q_auto',
   INSTAGRAM_SQUARE: 'c_fill,ar_1:1,f_auto,q_auto',

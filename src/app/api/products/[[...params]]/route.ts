@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { prisma } from '@/lib/db';
 import { rateLimit } from '@/lib/redis';
-import { RATE_LIMITS } from '@/lib/constants';
+import { RATE_LIMITS, PLAN_LIMITS } from '@/lib/constants';
 import { generateSlug } from '@/lib/utils';
 import { auth } from '@/lib/auth';
 import { deleteCloudinaryAsset } from '@/lib/cloudinary';
@@ -328,6 +328,43 @@ export async function POST(
       { error: 'Validation failed', code: parsed.error.message },
       { status: 400 },
     );
+  }
+
+  // Plan enforcement — check product count against plan limit
+  const business = await prisma.business.findUnique({
+    where: { id: businessId },
+    select: { plan: true, planExpiresAt: true },
+  });
+
+  if (business) {
+    const planKey = business.plan as keyof typeof PLAN_LIMITS;
+    const limit = PLAN_LIMITS[planKey]?.maxProducts ?? 10;
+
+    if (limit !== Infinity) {
+      const currentCount = await prisma.product.count({
+        where: { businessId, status: { not: 'ARCHIVED' } },
+      });
+      if (currentCount >= limit) {
+        return NextResponse.json<ApiResponse<never>>(
+          {
+            error: `Your ${business.plan} plan allows a maximum of ${limit} products. Please upgrade your plan to add more.`,
+            code: 'PLAN_LIMIT_REACHED',
+          },
+          { status: 403 },
+        );
+      }
+    }
+
+    // Check trial expiry
+    if (business.planExpiresAt && new Date(business.planExpiresAt) < new Date()) {
+      return NextResponse.json<ApiResponse<never>>(
+        {
+          error: 'Your trial has expired. Please contact support to upgrade your plan.',
+          code: 'TRIAL_EXPIRED',
+        },
+        { status: 403 },
+      );
+    }
   }
 
   try {
