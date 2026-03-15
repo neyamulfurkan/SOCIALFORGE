@@ -202,6 +202,7 @@ export default function MessagesInbox({ initialConversations, businessId }: Mess
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
         body: JSON.stringify({ markRead: true }),
+        // markRead:true is handled by the route's statusSchema
       });
     },
     onSuccess: () => {
@@ -534,13 +535,46 @@ export default function MessagesInbox({ initialConversations, businessId }: Mess
               </div>
             )}
 
-            {/* Bot status banner */}
-            <div className="px-4 py-1.5 bg-surface border-b border-border flex items-center gap-2 flex-shrink-0">
-              <span className="inline-flex items-center gap-1.5 text-xs">
-                <span className="w-1.5 h-1.5 rounded-full bg-success inline-block" />
-                <span className="text-text-secondary">Bot is handling this conversation</span>
-              </span>
-            </div>
+            {/* Bot status banner with toggle */}
+            {(() => {
+              const conv = threadData ?? selectedConv;
+              const botPaused = (conv as { botPaused?: boolean })?.botPaused ?? false;
+              return (
+                <div className="px-4 py-1.5 bg-surface border-b border-border flex items-center justify-between gap-2 flex-shrink-0">
+                  <span className="inline-flex items-center gap-1.5 text-xs">
+                    <span
+                      className={`w-1.5 h-1.5 rounded-full inline-block ${
+                        botPaused ? 'bg-warning' : 'bg-success'
+                      }`}
+                    />
+                    <span className="text-text-secondary">
+                      {botPaused ? 'Bot paused — you are handling this' : 'Bot is handling this conversation'}
+                    </span>
+                  </span>
+                  <button
+                    onClick={() => {
+                      if (!selectedId) return;
+                      fetch(`/api/messenger/conversations/${selectedId}/status`, {
+                        method: 'PATCH',
+                        headers: { 'Content-Type': 'application/json' },
+                        credentials: 'include',
+                        body: JSON.stringify({ botPaused: !botPaused }),
+                      }).then(() => {
+                        qc.invalidateQueries({ queryKey: ['conversations', businessId] });
+                        qc.invalidateQueries({ queryKey: ['conversation-messages', selectedId] });
+                      });
+                    }}
+                    className={`text-xs px-2 py-0.5 rounded-md border transition-colors ${
+                      botPaused
+                        ? 'border-success text-success hover:bg-success/10'
+                        : 'border-warning text-warning hover:bg-warning/10'
+                    }`}
+                  >
+                    {botPaused ? 'Resume bot' : 'Pause bot'}
+                  </button>
+                </div>
+              );
+            })()}
 
             {/* Messages list */}
             <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3">

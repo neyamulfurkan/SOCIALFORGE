@@ -324,6 +324,41 @@ async function processMessagingEvent(
 
   const businessId = businessConfig.businessId;
 
+  // Check if bot is paused for this specific conversation
+  const existingConv = await prisma.messengerConversation.findUnique({
+    where: { businessId_senderId: { businessId, senderId } },
+  });
+  if (existingConv?.botPaused) {
+    console.log(`[Webhook] Bot paused for sender ${senderId} — skipping AI reply`);
+    // Still upsert to record the incoming message, but skip all AI/reply logic
+    const conv = await prisma.messengerConversation.upsert({
+      where: { businessId_senderId: { businessId, senderId } },
+      update: {
+        lastMessageAt: new Date(),
+        lastMessagePreview: messageText.slice(0, 100),
+        unreadCount: { increment: 1 },
+      },
+      create: {
+        businessId,
+        senderId,
+        lastMessageAt: new Date(),
+        lastMessagePreview: messageText.slice(0, 100),
+        status: 'OPEN',
+        unreadCount: 1,
+      },
+    });
+    await prisma.messengerMessage.create({
+      data: {
+        conversationId: conv.id,
+        role: 'CUSTOMER',
+        content: messageText,
+        timestamp: new Date(),
+        mid: messageMid,
+      },
+    });
+    return;
+  }
+
   // Load conversation session from Redis
   const sessionKey = `messenger:${businessId}:${senderId}`;
   const sessionData: MessengerSession =

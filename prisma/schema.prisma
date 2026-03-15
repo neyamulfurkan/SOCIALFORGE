@@ -280,6 +280,7 @@ model MessengerConversation {
   unreadCount         Int                @default(0)
   status              ConversationStatus
   starred             Boolean            @default(false)
+  botPaused           Boolean            @default(false)
   messages            MessengerMessage[]
   associatedOrderIds  String[]
   createdAt           DateTime           @default(now())

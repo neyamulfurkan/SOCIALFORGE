@@ -15,6 +15,9 @@ const replySchema = z.object({
 const statusSchema = z.object({
   status: z.enum(['OPEN', 'RESOLVED', 'FLAGGED']).optional(),
   starred: z.boolean().optional(),
+  action: z.enum(['resolve', 'reopen', 'star', 'unstar', 'flag', 'unflag']).optional(),
+  markRead: z.boolean().optional(),
+  botPaused: z.boolean().optional(),
 });
 
 // ─────────────────────────────────────────────
@@ -287,6 +290,24 @@ export async function PATCH(
   const { params: segments = [] } = await params;
   const [resource, id, sub] = segments;
 
+  // PATCH /api/messenger/conversations/mark-all-read
+  if (resource === 'conversations' && id === 'mark-all-read' && !sub) {
+    await prisma.messengerConversation.updateMany({
+      where: { businessId },
+      data: { unreadCount: 0 },
+    });
+    return NextResponse.json({ data: { success: true } });
+  }
+
+  // PATCH /api/messenger/conversations/mark-all-read
+  if (resource === 'conversations' && id === 'mark-all-read' && !sub) {
+    await prisma.messengerConversation.updateMany({
+      where: { businessId },
+      data: { unreadCount: 0 },
+    });
+    return NextResponse.json({ data: { success: true } });
+  }
+
   // PATCH /api/messenger/conversations/:id/status
   if (resource === 'conversations' && id && sub === 'status') {
     let body: unknown;
@@ -301,24 +322,41 @@ export async function PATCH(
       return badRequest(parsed.error.errors[0]?.message ?? 'Invalid input');
     }
 
-    const { status, starred } = parsed.data;
-
-    if (status === undefined && starred === undefined) {
-      return badRequest('Provide at least one of: status, starred');
-    }
+    const { status, starred, action, markRead, botPaused } = parsed.data;
 
     // Verify ownership
     const existing = await prisma.messengerConversation.findUnique({
       where: { id },
-      select: { businessId: true },
+      select: { businessId: true, status: true, starred: true },
     });
 
     if (!existing) return notFound('Conversation');
     if (existing.businessId !== businessId) return forbidden();
 
-    const updateData: { status?: 'OPEN' | 'RESOLVED' | 'FLAGGED'; starred?: boolean } = {};
+    const updateData: {
+      status?: 'OPEN' | 'RESOLVED' | 'FLAGGED';
+      starred?: boolean;
+      unreadCount?: number;
+      botPaused?: boolean;
+    } = {};
+
+    // Map action string to the correct field update
+    if (action === 'resolve') updateData.status = 'RESOLVED';
+    else if (action === 'reopen') updateData.status = 'OPEN';
+    else if (action === 'flag') updateData.status = 'FLAGGED';
+    else if (action === 'unflag') updateData.status = 'OPEN';
+    else if (action === 'star') updateData.starred = true;
+    else if (action === 'unstar') updateData.starred = false;
+
+    // Direct field updates (non-action path)
     if (status !== undefined) updateData.status = status;
     if (starred !== undefined) updateData.starred = starred;
+    if (markRead === true) updateData.unreadCount = 0;
+    if (botPaused !== undefined) updateData.botPaused = botPaused;
+
+    if (Object.keys(updateData).length === 0) {
+      return badRequest('Provide at least one of: action, status, starred, markRead, botPaused');
+    }
 
     const updated = await prisma.messengerConversation.update({
       where: { id },
