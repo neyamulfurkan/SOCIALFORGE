@@ -1,6 +1,6 @@
 'use client';
 
-import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import { useCartStore } from '@/store/cartStore';
 import { useUIStore } from '@/store/uiStore';
@@ -14,6 +14,7 @@ type ProductCardProps = {
 };
 
 export default function ProductCard({ product, storeSlug }: ProductCardProps): React.ReactElement {
+  const router = useRouter();
   const addItem = useCartStore((s) => s.addItem);
   const addToast = useUIStore((s) => s.addToast);
 
@@ -48,8 +49,8 @@ export default function ProductCard({ product, storeSlug }: ProductCardProps): R
   }
 
   return (
-    <Link
-      href={`/${storeSlug}/products/${product.slug}`}
+    <div
+      onClick={() => { router.push(`/${storeSlug}/products/${product.slug}`); }}
       className="group relative bg-store-surface rounded-2xl overflow-hidden border border-store-border cursor-pointer block w-full transition-all duration-300 hover:border-accent/30 hover:shadow-[0_8px_32px_rgba(0,0,0,0.08)] hover:-translate-y-0.5"
     >
       {/* Image */}
@@ -127,6 +128,6 @@ export default function ProductCard({ product, storeSlug }: ProductCardProps): R
           {outOfStock ? 'Out of Stock' : hasVariants ? 'Choose Options' : 'Add to Cart'}
         </button>
       </div>
-    </Link>
+</div>
   );
 }
