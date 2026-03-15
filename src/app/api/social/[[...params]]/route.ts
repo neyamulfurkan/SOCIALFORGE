@@ -210,29 +210,87 @@ Respond ONLY with valid JSON in this exact shape, no markdown, no extra keys:
 async function postToFacebook(
   pageId: string,
   pageToken: string,
-  imageUrl: string,
+  imageUrls: string[],
   caption: string,
 ): Promise<string> {
-  const url = `https://graph.facebook.com/v19.0/${pageId}/photos`;
-  const res = await fetch(url, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      url: imageUrl,
-      caption,
-      access_token: pageToken,
-    }),
-    cache: 'no-store',
-  });
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
+  // Single image — use /photos endpoint directly
+  if (imageUrls.length === 1) {
+    const url = `https://graph.facebook.com/v19.0/${pageId}/photos`;
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        url: imageUrls[0],
+        caption,
+        access_token: pageToken,
+      }),
+      cache: 'no-store',
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(
+        (err as { error?: { message?: string } }).error?.message ??
+          'Facebook post failed',
+      );
+    }
+    const data = (await res.json()) as { id: string };
+    return data.id;
+  }
+
+  // Multiple images — step 1: upload each image as unpublished photo
+  const uploadedIds: string[] = [];
+  for (const imgUrl of imageUrls.slice(0, 10)) {
+    const photoRes = await fetch(
+      `https://graph.facebook.com/v19.0/${pageId}/photos`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          url: imgUrl,
+          published: false, // unpublished — will attach to feed post
+          access_token: pageToken,
+        }),
+        cache: 'no-store',
+      },
+    );
+    if (!photoRes.ok) {
+      const err = await photoRes.json().catch(() => ({}));
+      console.error('Photo upload failed:', (err as { error?: { message?: string } }).error?.message);
+      continue; // skip failed image, continue with others
+    }
+    const photoData = (await photoRes.json()) as { id: string };
+    uploadedIds.push(photoData.id);
+  }
+
+  if (uploadedIds.length === 0) {
+    throw new Error('All image uploads failed');
+  }
+
+  // Step 2: create a feed post attaching all uploaded photo IDs
+  const feedRes = await fetch(
+    `https://graph.facebook.com/v19.0/${pageId}/feed`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        message: caption,
+        attached_media: uploadedIds.map((id) => ({ media_fbid: id })),
+        access_token: pageToken,
+      }),
+      cache: 'no-store',
+    },
+  );
+
+  if (!feedRes.ok) {
+    const err = await feedRes.json().catch(() => ({}));
     throw new Error(
       (err as { error?: { message?: string } }).error?.message ??
-        'Facebook post failed',
+        'Facebook multi-image post failed',
     );
   }
-  const data = (await res.json()) as { id: string };
-  return data.id;
+
+  const feedData = (await feedRes.json()) as { id: string };
+  return feedData.id;
 }
 
 async function postToInstagram(
@@ -707,8 +765,9 @@ export async function PATCH(
       facebook: string[];
       instagram: string[];
     };
-    const fbImage = imageUrls.facebook[0] ?? '';
-    const igImage = imageUrls.instagram[0] ?? '';
+    const fbImages = imageUrls.facebook ?? [];
+    const fbImage = fbImages[0] ?? '';
+    const igImage = imageUrls.instagram?.[0] ?? '';
 
     let facebookPostId: string | null = null;
     let instagramPostId: string | null = null;
@@ -718,12 +777,12 @@ export async function PATCH(
     // Attempt Facebook first — it is the primary platform.
     // Instagram is attempted after. If Facebook fails, Instagram is skipped.
     // If Instagram fails after Facebook succeeds, we log but do not rollback Facebook.
-    if (facebookPageId && facebookPageToken && fbImage) {
+    if (facebookPageId && facebookPageToken && fbImages.length > 0) {
       try {
         facebookPostId = await postToFacebook(
           facebookPageId,
           facebookPageToken,
-          fbImage,
+          fbImages,
           post.facebookCaption,
         );
       } catch (err) {
@@ -734,9 +793,9 @@ export async function PATCH(
     } else if (!facebookPageId || !facebookPageToken) {
       failed = true;
       failureReason = 'Facebook Page ID or Access Token is not configured. Go to Settings → Messenger to connect your Page.';
-    } else if (!fbImage) {
+    } else if (fbImages.length === 0) {
       failed = true;
-      failureReason = 'No image available for Facebook post.';
+      failureReason = 'No images available for Facebook post.';
     }
 
     // Only attempt Instagram if Facebook succeeded
