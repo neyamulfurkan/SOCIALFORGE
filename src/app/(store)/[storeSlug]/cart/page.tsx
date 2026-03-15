@@ -55,7 +55,7 @@ export default function CartPage() {
     .map((p) => p.id);
 
   return (
-    <div className="min-h-screen bg-[var(--color-store-bg)]">
+    <div className="bg-[var(--color-store-bg)] pt-6 pb-16">
       <Cart
         storeSlug={storeSlug}
         deliveryCharge={productQueryResult?.deliveryCharge ?? 0}
