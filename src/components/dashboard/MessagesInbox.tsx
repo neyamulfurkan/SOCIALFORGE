@@ -45,13 +45,37 @@ function renderMessageContent(content: string): React.ReactNode {
   });
 }
 
-function InitialsAvatar({ name, size = 'md' }: { name: string; size?: 'sm' | 'md' }) {
+function InitialsAvatar({
+  name,
+  avatarUrl,
+  size = 'md',
+}: {
+  name: string;
+  avatarUrl?: string | null;
+  size?: 'sm' | 'md';
+}) {
   const initials = name
     .split(' ')
     .slice(0, 2)
     .map((w) => w[0]?.toUpperCase() ?? '')
     .join('');
   const dims = size === 'sm' ? 'w-8 h-8 text-xs' : 'w-10 h-10 text-sm';
+
+  if (avatarUrl) {
+    return (
+      // eslint-disable-next-line @next/next/no-img-element
+      <img
+        src={avatarUrl}
+        alt={name}
+        className={`${dims} rounded-full object-cover flex-shrink-0`}
+        onError={(e) => {
+          // Fallback to initials if image fails
+          (e.currentTarget as HTMLImageElement).style.display = 'none';
+        }}
+      />
+    );
+  }
+
   return (
     <div
       className={`${dims} rounded-full bg-accent/20 text-accent font-semibold flex items-center justify-center flex-shrink-0`}
@@ -382,7 +406,7 @@ export default function MessagesInbox({ initialConversations, businessId }: Mess
                   ${isSelected ? 'bg-surface-raised' : 'hover:bg-surface'}
                 `}
               >
-                <InitialsAvatar name={name} />
+                <InitialsAvatar name={name} avatarUrl={conv.senderAvatar} />
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center justify-between gap-2">
                     <span className="text-sm font-medium text-text-primary truncate">{name}</span>
@@ -447,7 +471,7 @@ export default function MessagesInbox({ initialConversations, businessId }: Mess
                 <ArrowLeftIcon className="w-5 h-5" />
               </button>
 
-              <InitialsAvatar name={selectedConv.senderName ?? 'Unknown'} size="sm" />
+              <InitialsAvatar name={selectedConv.senderName ?? 'Unknown'} avatarUrl={selectedConv.senderAvatar} size="sm" />
 
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2">

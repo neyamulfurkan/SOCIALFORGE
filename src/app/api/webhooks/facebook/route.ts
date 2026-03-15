@@ -412,16 +412,39 @@ async function processMessagingEvent(
   if (existingConv?.botPaused) {
     console.log(`[Webhook] Bot paused for sender ${senderId} — skipping AI reply`);
     // Still upsert to record the incoming message, but skip all AI/reply logic
+    // Fetch sender profile if missing
+    let pausedSenderName: string | null = null;
+    let pausedSenderAvatar: string | null = null;
+    if (!existingConv?.senderName) {
+      try {
+        const profileRes = await fetch(
+          `https://graph.facebook.com/v19.0/${senderId}?fields=name,profile_pic&access_token=${businessConfig.facebookPageToken}`,
+        );
+        if (profileRes.ok) {
+          const profile = await profileRes.json() as { name?: string; profile_pic?: string };
+          pausedSenderName = profile.name ?? null;
+          pausedSenderAvatar = profile.profile_pic ?? null;
+        }
+      } catch {}
+    } else {
+      pausedSenderName = existingConv.senderName;
+      pausedSenderAvatar = existingConv.senderAvatar;
+    }
+
     const conv = await prisma.messengerConversation.upsert({
       where: { businessId_senderId: { businessId, senderId } },
       update: {
         lastMessageAt: new Date(),
         lastMessagePreview: messageText.slice(0, 100),
         unreadCount: { increment: 1 },
+        ...(pausedSenderName ? { senderName: pausedSenderName } : {}),
+        ...(pausedSenderAvatar ? { senderAvatar: pausedSenderAvatar } : {}),
       },
       create: {
         businessId,
         senderId,
+        senderName: pausedSenderName,
+        senderAvatar: pausedSenderAvatar,
         lastMessageAt: new Date(),
         lastMessagePreview: messageText.slice(0, 100),
         status: 'OPEN',
@@ -622,6 +645,33 @@ const paymentMethodMap: Record<string, string> = {
     JSON.stringify({ messages: updatedMessages }),
   );
 
+  // Fetch sender profile from Facebook if this is a new conversation
+  let senderName: string | null = null;
+  let senderAvatar: string | null = null;
+  const existingConvForProfile = await prisma.messengerConversation.findUnique({
+    where: { businessId_senderId: { businessId, senderId } },
+    select: { senderName: true, senderAvatar: true },
+  });
+
+  if (!existingConvForProfile?.senderName) {
+    // New conversation or missing profile — fetch from Graph API
+    try {
+      const profileRes = await fetch(
+        `https://graph.facebook.com/v19.0/${senderId}?fields=name,profile_pic&access_token=${businessConfig.facebookPageToken}`,
+      );
+      if (profileRes.ok) {
+        const profile = await profileRes.json() as { name?: string; profile_pic?: string };
+        senderName = profile.name ?? null;
+        senderAvatar = profile.profile_pic ?? null;
+      }
+    } catch (profileErr) {
+      console.error('[Webhook] Failed to fetch sender profile:', profileErr);
+    }
+  } else {
+    senderName = existingConvForProfile.senderName;
+    senderAvatar = existingConvForProfile.senderAvatar;
+  }
+
   // Upsert conversation in DB
   const conversation = await prisma.messengerConversation.upsert({
     where: { businessId_senderId: { businessId, senderId } },
@@ -629,10 +679,15 @@ const paymentMethodMap: Record<string, string> = {
       lastMessageAt: new Date(),
       lastMessagePreview: messageText.slice(0, 100),
       unreadCount: { increment: 1 },
+      // Update name/avatar if we just fetched them
+      ...(senderName ? { senderName } : {}),
+      ...(senderAvatar ? { senderAvatar } : {}),
     },
     create: {
       businessId,
       senderId,
+      senderName,
+      senderAvatar,
       lastMessageAt: new Date(),
       lastMessagePreview: messageText.slice(0, 100),
       status: 'OPEN',
