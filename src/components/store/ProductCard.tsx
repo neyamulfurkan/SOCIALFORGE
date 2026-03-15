@@ -50,7 +50,7 @@ export default function ProductCard({ product, storeSlug }: ProductCardProps): R
   return (
     <Link
       href={`/${storeSlug}/products/${product.slug}`}
-      className="group relative bg-store-surface rounded-2xl overflow-hidden border border-store-border cursor-pointer block transition-all duration-300 hover:border-accent/30 hover:shadow-[0_8px_32px_rgba(0,0,0,0.08)] hover:-translate-y-0.5"
+      className="group relative bg-store-surface rounded-2xl overflow-hidden border border-store-border cursor-pointer block w-full transition-all duration-300 hover:border-accent/30 hover:shadow-[0_8px_32px_rgba(0,0,0,0.08)] hover:-translate-y-0.5"
     >
       {/* Image */}
       <div className="relative overflow-hidden bg-store-border" style={{ aspectRatio: '3/4' }}>

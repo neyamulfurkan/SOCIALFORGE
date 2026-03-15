@@ -178,7 +178,7 @@ export default function ProductGrid({
         <EmptyState />
       ) : (
         products.map((product) => (
-          <motion.div key={product.id} variants={itemVariants}>
+          <motion.div key={product.id} variants={itemVariants} className="w-full min-w-0">
             <Card product={product} storeSlug={storeSlug} />
           </motion.div>
         ))
