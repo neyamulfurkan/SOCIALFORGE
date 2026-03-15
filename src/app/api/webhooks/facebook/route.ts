@@ -152,15 +152,26 @@ function buildMessengerImageUrl(imageUrl: string): string {
   return `https://res.cloudinary.com/${cloudName}/image/upload/c_fill,ar_1:1,w_800,f_auto,q_auto/${imageUrl}`;
 }
 
-function shouldShowCarousel(message: string): boolean {
-  const lower = message.toLowerCase();
-  const triggers = [
-    'product', 'products', 'show', 'list', 'catalog', 'catalogue',
-    'what do you sell', 'what do you have', 'available', 'items',
-    'collection', 'shop', 'buy', 'purchase', 'price', 'prices',
-    'পণ্য', 'দেখাও', 'কি আছে', 'কি পাওয়া যায়', 'দাম',
-  ];
-  return triggers.some((t) => lower.includes(t));
+// Extract product slugs the AI embedded in its reply via %%CAROUSEL%%[...]%%END%%
+// Returns null if the tag is absent (meaning: do not show a carousel)
+function extractCarouselSlugs(replyText: string): string[] | null {
+  const match = replyText.match(/%%CAROUSEL%%([\s\S]*?)%%END%%/);
+  if (!match) return null;
+  try {
+    const parsed = JSON.parse(match[1].trim());
+    if (Array.isArray(parsed) && parsed.length > 0) {
+      return (parsed as unknown[])
+        .filter((s): s is string => typeof s === 'string' && s.length > 0);
+    }
+  } catch {
+    // malformed tag — ignore
+  }
+  return null;
+}
+
+// Strip the carousel tag from the visible reply text before sending
+function stripCarouselTag(replyText: string): string {
+  return replyText.replace(/\n?%%CAROUSEL%%[\s\S]*?%%END%%/g, '').trim();
 }
 
 async function buildSystemPrompt(
@@ -292,7 +303,13 @@ async function buildSystemPrompt(
     `When a customer wants to order, guide them to the store: ${storeUrl} ` +
     `or ask for their: full name, phone number, delivery address, and preferred payment method. ` +
     `Never make up products or prices — only use what is listed below. ` +
-    `If something is out of stock, say so clearly and suggest alternatives if available.` +
+    `If something is out of stock, say so clearly and suggest alternatives if available. ` +
+    `IMPORTANT: When your reply mentions or recommends specific products, you MUST append a special tag at the very end of your reply on a new line in this exact format (no extra text around it): ` +
+    `%%CAROUSEL%%["slug1","slug2"]%%END%% ` +
+    `Only include slugs of products you actually mentioned in your reply. ` +
+    `If your reply does not mention any specific product, do NOT include the tag at all. ` +
+    `If the customer asks to see all products or the full catalog, include up to 8 slugs. ` +
+    `The slugs must exactly match the product slugs listed in the catalog below.` +
     catalogSection +
     deliverySection +
     paymentSection +
@@ -388,27 +405,40 @@ async function processMessagingEvent(
     })),
   });
 
-  // Send text reply first
-  await sendMessengerMessage(senderId, reply, businessConfig.facebookPageToken);
+  // Parse carousel slugs the AI embedded in its reply
+  const carouselSlugs = extractCarouselSlugs(reply);
 
-  // If customer is asking about products, send a carousel after the text reply
-  if (shouldShowCarousel(messageText)) {
+  // Strip the tag from the visible reply before sending to customer
+  const visibleReply = stripCarouselTag(reply);
+
+  // Send text reply first
+  await sendMessengerMessage(senderId, visibleReply, businessConfig.facebookPageToken);
+
+  // Send carousel only for the specific products the AI mentioned
+  if (carouselSlugs && carouselSlugs.length > 0) {
     const storeUrl = `${process.env.NEXTAUTH_URL ?? 'https://socialforge3.vercel.app'}/${businessConfig.business.slug}`;
+
     const products = await prisma.product.findMany({
-      where: { businessId, status: 'ACTIVE' },
-      orderBy: { createdAt: 'desc' },
-      take: 10,
+      where: {
+        businessId,
+        status: 'ACTIVE',
+        slug: { in: carouselSlugs },
+      },
     });
 
-    const carouselProducts = products
-      .filter((p) => p.images && (p.images as string[]).length > 0)
-      .map((p) => ({
-        name: p.name,
-        price: Number(p.price),
-        imageUrl: (p.images as string[])[0],
-        slug: p.slug,
-        description: p.description,
-      }));
+    // Sort by the order the AI mentioned them
+    const sorted = carouselSlugs
+      .map((slug) => products.find((p) => p.slug === slug))
+      .filter((p): p is NonNullable<typeof p> => p !== undefined)
+      .filter((p) => p.images && (p.images as string[]).length > 0);
+
+    const carouselProducts = sorted.map((p) => ({
+      name: p.name,
+      price: Number(p.price),
+      imageUrl: (p.images as string[])[0],
+      slug: p.slug,
+      description: p.description,
+    }));
 
     if (carouselProducts.length > 0) {
       await sendProductCarousel(
@@ -460,12 +490,12 @@ async function processMessagingEvent(
     },
   });
 
-  // Save bot reply
+  // Save bot reply (store the clean version without the carousel tag)
   await prisma.messengerMessage.create({
     data: {
       conversationId: conversation.id,
       role: 'BOT',
-      content: reply,
+      content: visibleReply,
       timestamp: new Date(),
     },
   });
