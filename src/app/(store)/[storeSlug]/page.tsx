@@ -210,7 +210,7 @@ function HeroSection({
   return (
     <section
       className="relative w-full overflow-hidden bg-[#0a0a09]"
-      style={{ height: '100vh', minHeight: 560 }}
+      style={{ height: '100vh', minHeight: 560, maxHeight: '100vh' }}
     >
       {/* Carousel */}
       <HeroCarousel images={heroImages} businessName={business.name} />
@@ -248,7 +248,7 @@ function HeroSection({
       </div>
 
       {/* Content */}
-      <div className="relative z-20 h-full flex items-center px-6 md:px-16 max-w-7xl mx-auto" style={{ paddingTop: '72px', paddingBottom: '100px' }}>
+      <div className="relative z-20 h-full flex items-center px-6 md:px-16 max-w-7xl mx-auto overflow-y-auto" style={{ paddingTop: '72px', paddingBottom: '100px' }}>
         <div style={{ maxWidth: '420px', width: '100%' }}>
 
           {/* Eyebrow — refined label */}

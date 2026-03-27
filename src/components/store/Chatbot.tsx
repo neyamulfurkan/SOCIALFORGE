@@ -382,6 +382,7 @@ export default function Chatbot({ storeConfig }: { storeConfig: StoreConfig }) {
               'md:bottom-24 md:right-4 md:left-auto md:w-96 md:rounded-2xl md:h-[600px]',
               '[&]:min-h-0',
             )}
+            style={{ maxHeight: '75vh' }}
           >
             <style>{`
               @keyframes chatbot-bounce {

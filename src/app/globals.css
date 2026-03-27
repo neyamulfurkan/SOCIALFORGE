@@ -107,6 +107,9 @@
 .store-page {
   background-color: var(--color-store-bg);
   color: var(--color-store-text);
+  overflow-x: hidden;
+  width: 100%;
+  position: relative;
 }
 
 .store-page nav.bottom-nav-mobile {

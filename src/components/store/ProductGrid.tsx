@@ -166,11 +166,11 @@ export default function ProductGrid({
 
   return (
     <motion.div
-      className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-3 w-full"
+      className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-3 w-full overflow-visible"
       variants={containerVariants}
       initial="hidden"
       whileInView="visible"
-      viewport={{ once: true }}
+      viewport={{ once: true, margin: "-50px" }}
     >
       {loading ? (
         Array.from({ length: 8 }).map((_, i) => <SkeletonCard key={i} />)

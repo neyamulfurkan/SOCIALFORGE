@@ -275,8 +275,9 @@ export default function SearchOverlay({
               WebkitBackdropFilter: 'blur(24px) saturate(180%)',
               border: '1px solid rgba(0,0,0,0.06)',
               boxShadow: '0 8px 32px rgba(0,0,0,0.1)',
-              maxHeight: '60vh',
+              maxHeight: 'calc(60vh - 80px)',
               overflowY: 'auto',
+              overflowX: 'hidden',
               // Anchor color context so all children inherit light-theme colors
               color: 'var(--color-store-text)',
             }}

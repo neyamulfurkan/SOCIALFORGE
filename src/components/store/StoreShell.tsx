@@ -479,7 +479,7 @@ export default function StoreShell({ storeConfig, storeSlug, children }: StoreSh
     <>
       <ScrollProgress />
 
-      <div className="store-page min-h-screen bg-store-bg">
+      <div className="store-page min-h-screen bg-store-bg overflow-x-hidden">
         <TopNav
           storeConfig={storeConfig}
           storeSlug={storeSlug}
