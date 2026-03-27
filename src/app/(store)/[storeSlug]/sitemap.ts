@@ -7,12 +7,14 @@ import { prisma } from '@/lib/db';
 
 export const revalidate = 3600;
 
+export const dynamic = 'force-dynamic';
+
 export default async function sitemap({
   params,
 }: {
-  params: { storeSlug: string };
+  params: Promise<{ storeSlug: string }>;
 }): Promise<MetadataRoute.Sitemap> {
-  const { storeSlug } = params;
+  const { storeSlug } = await params;
   const siteUrl = process.env.NEXTAUTH_URL ?? 'http://localhost:3000';
 
   const business = await prisma.business.findFirst({
