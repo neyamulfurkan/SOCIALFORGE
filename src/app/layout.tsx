@@ -18,7 +18,7 @@ export const metadata: Metadata = {
   description: 'Social commerce platform for small businesses',
     metadataBase: new URL(process.env.NEXTAUTH_URL ?? 'http://localhost:3000'),
   verification: {
-    google: 'nKkTo1ZhrMXmKetMTUPSNsFPizaSHfvOBNJoziwZv9g',
+    google: 'aU7-12eI1VkfWf3_NzWDTGaRgRgcucyhQUzJf91z0Ug',
   },
   robots: {
     index: false,
