@@ -1646,6 +1646,7 @@ export function SettingsClient({
   isSuperAdmin,
 }: SettingsClientProps) {
   const [activeSection, setActiveSection] = useState('branding');
+  const [mobileDrawerOpen, setMobileDrawerOpen] = useState(false);
   const { save, getState } = useSave(businessId);
 
   // Always show API Keys tab for all business owners (they can now set their own Groq keys)
@@ -1656,119 +1657,169 @@ export function SettingsClient({
   // Check if current user is a regular business owner to conditionally show API Keys section
   const isRegularBusinessOwner = !isSuperAdmin && businessId !== null;
 
-  return (
-    <div className="flex min-h-screen w-full overflow-x-hidden">
-      {/* Left sub-nav */}
-      <aside className="hidden lg:flex flex-col w-52 shrink-0 border-r border-border pt-6 pr-4 gap-0.5">
-        {visibleNav.map((item) => (
-          <button
-            key={item.id}
-            onClick={() => setActiveSection(item.id)}
-            className={cn(
-              'w-full text-left px-3 py-2 text-sm rounded-md transition-colors',
-              activeSection === item.id
-                ? 'bg-accent/10 text-accent font-medium'
-                : 'text-text-secondary hover:text-text-primary hover:bg-surface-raised',
-            )}
-          >
-            {item.label}
-          </button>
-        ))}
-      </aside>
+  const selectedLabel = visibleNav.find(item => item.id === activeSection)?.label || 'Settings';
 
-      {/* Mobile tab strip */}
-      <div className="lg:hidden w-full overflow-x-auto flex gap-2 px-4 py-3 border-b border-border">
-        {visibleNav.map((item) => (
-          <button
-            key={item.id}
-            onClick={() => setActiveSection(item.id)}
-            className={cn(
-              'shrink-0 px-3 py-1.5 text-sm rounded-full border transition-colors',
-              activeSection === item.id
-                ? 'border-accent bg-accent/10 text-accent font-medium'
-                : 'border-border text-text-secondary hover:text-text-primary',
-            )}
-          >
-            {item.label}
-          </button>
-        ))}
+  return (
+    <div className="flex flex-col lg:flex-row min-h-screen w-full">
+      {/* Mobile header with drawer toggle */}
+      <div className="lg:hidden sticky top-0 z-20 bg-surface border-b border-border px-4 py-3 flex items-center justify-between">
+        <button
+          onClick={() => setMobileDrawerOpen(true)}
+          className="p-2 -ml-2 rounded-md text-text-secondary hover:text-text-primary hover:bg-surface-raised transition-colors"
+          aria-label="Open settings menu"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <line x1="3" y1="12" x2="21" y2="12" />
+            <line x1="3" y1="6" x2="21" y2="6" />
+            <line x1="3" y1="18" x2="21" y2="18" />
+          </svg>
+        </button>
+        <span className="font-semibold text-text-primary">{selectedLabel}</span>
+        <div className="w-8" />
       </div>
 
-      {/* Section content */}
-      <main className="flex-1 w-full overflow-y-auto overflow-x-hidden">
-        <div className="px-4 py-4 md:px-6 md:py-6 w-full">
-        <div className="w-full max-w-3xl mx-auto">
-        {activeSection === 'branding' && (
-          <BrandingSection
-            initial={brandingData}
-            businessId={businessId}
-            save={save}
-            saveState={getState('branding')}
+      {/* Mobile drawer overlay */}
+      {mobileDrawerOpen && (
+        <>
+          <div
+            className="fixed inset-0 z-40 bg-black/50 lg:hidden"
+            onClick={() => setMobileDrawerOpen(false)}
           />
-        )}
-        {activeSection === 'colorTheme' && (
-          <ColorThemeSection
-            initialAccentColor={brandingData.accentColor}
-            save={save}
-            saveState={getState('branding')}
-          />
-        )}
-        {activeSection === 'heroImages' && (
-          <HeroImagesSection
-            initial={brandingData.heroImages}
-            save={save}
-            saveState={getState('branding')}
-          />
-        )}
-        {activeSection === 'payments' && (
-          <PaymentsSection
-            initial={config}
-            save={save}
-            saveState={getState('payments')}
-          />
-        )}
-        {activeSection === 'delivery' && (
-          <DeliverySection
-            initial={config}
-            save={save}
-            saveState={getState('delivery')}
-          />
-        )}
-        {activeSection === 'chatbot' && (
-          <ChatbotSection
-            initial={config}
-            save={save}
-            saveState={getState('chatbot')}
-          />
-        )}
-        {activeSection === 'messenger' && (
-          <MessengerSection
-            initial={config}
-            save={save}
-            saveState={getState('messenger')}
-          />
-        )}
-        {activeSection === 'social' && (
-          <SocialSection
-            initial={config}
-            save={save}
-            saveState={getState('social')}
-          />
-        )}
-        {activeSection === 'notifications' && (
-          <NotificationsSection
-            initial={config}
-            save={save}
-            saveState={getState('notifications')}
-          />
-        )}
-        {activeSection === 'security' && (
-          <SecuritySection businessId={businessId} />
-        )}
-         {activeSection === 'apikeys' && (isSuperAdmin || isRegularBusinessOwner) && (
-          <ApiKeysSection businessId={businessId} />
-        )}
+          <div className="fixed left-0 top-0 bottom-0 z-50 w-72 bg-surface border-r border-border flex flex-col shadow-elevated lg:hidden animate-in slide-in-from-left duration-200">
+            <div className="flex items-center justify-between h-14 px-4 border-b border-border shrink-0">
+              <span className="font-semibold text-text-primary">Settings</span>
+              <button
+                onClick={() => setMobileDrawerOpen(false)}
+                className="p-2 -mr-2 rounded-md text-text-secondary hover:text-text-primary hover:bg-surface-raised transition-colors"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <line x1="18" y1="6" x2="6" y2="18" />
+                  <line x1="6" y1="6" x2="18" y2="18" />
+                </svg>
+              </button>
+            </div>
+            <nav className="flex-1 overflow-y-auto px-2 py-4 flex flex-col gap-1">
+              {visibleNav.map((item) => (
+                <button
+                  key={item.id}
+                  onClick={() => {
+                    setActiveSection(item.id);
+                    setMobileDrawerOpen(false);
+                  }}
+                  className={cn(
+                    'w-full text-left px-3 py-2.5 text-sm rounded-md transition-colors',
+                    activeSection === item.id
+                      ? 'bg-accent/10 text-accent font-medium'
+                      : 'text-text-secondary hover:text-text-primary hover:bg-surface-raised',
+                  )}
+                >
+                  {item.label}
+                </button>
+              ))}
+            </nav>
+          </div>
+        </>
+      )}
+
+      {/* Desktop sidebar */}
+      <aside className="hidden lg:flex flex-col w-64 shrink-0 border-r border-border bg-surface sticky top-0 h-screen">
+        <div className="p-6 pb-4">
+          <h1 className="text-lg font-bold text-text-primary">Settings</h1>
+          <p className="text-xs text-text-secondary mt-1">Manage your store configuration</p>
         </div>
+        <nav className="flex-1 overflow-y-auto px-3 pb-6 flex flex-col gap-1">
+          {visibleNav.map((item) => (
+            <button
+              key={item.id}
+              onClick={() => setActiveSection(item.id)}
+              className={cn(
+                'w-full text-left px-3 py-2.5 text-sm rounded-md transition-colors',
+                activeSection === item.id
+                  ? 'bg-accent/10 text-accent font-medium'
+                  : 'text-text-secondary hover:text-text-primary hover:bg-surface-raised',
+              )}
+            >
+              {item.label}
+            </button>
+          ))}
+        </nav>
+      </aside>
+
+      {/* Section content */}
+      <main className="flex-1 w-full min-w-0 overflow-y-auto">
+        <div className="px-4 py-6 md:px-8 md:py-8">
+          <div className="w-full max-w-3xl mx-auto">
+            {activeSection === 'branding' && (
+              <BrandingSection
+                initial={brandingData}
+                businessId={businessId}
+                save={save}
+                saveState={getState('branding')}
+              />
+            )}
+            {activeSection === 'colorTheme' && (
+              <ColorThemeSection
+                initialAccentColor={brandingData.accentColor}
+                save={save}
+                saveState={getState('branding')}
+              />
+            )}
+            {activeSection === 'heroImages' && (
+              <HeroImagesSection
+                initial={brandingData.heroImages}
+                save={save}
+                saveState={getState('branding')}
+              />
+            )}
+            {activeSection === 'payments' && (
+              <PaymentsSection
+                initial={config}
+                save={save}
+                saveState={getState('payments')}
+              />
+            )}
+            {activeSection === 'delivery' && (
+              <DeliverySection
+                initial={config}
+                save={save}
+                saveState={getState('delivery')}
+              />
+            )}
+            {activeSection === 'chatbot' && (
+              <ChatbotSection
+                initial={config}
+                save={save}
+                saveState={getState('chatbot')}
+              />
+            )}
+            {activeSection === 'messenger' && (
+              <MessengerSection
+                initial={config}
+                save={save}
+                saveState={getState('messenger')}
+              />
+            )}
+            {activeSection === 'social' && (
+              <SocialSection
+                initial={config}
+                save={save}
+                saveState={getState('social')}
+              />
+            )}
+            {activeSection === 'notifications' && (
+              <NotificationsSection
+                initial={config}
+                save={save}
+                saveState={getState('notifications')}
+              />
+            )}
+            {activeSection === 'security' && (
+              <SecuritySection businessId={businessId} />
+            )}
+            {activeSection === 'apikeys' && (isSuperAdmin || isRegularBusinessOwner) && (
+              <ApiKeysSection businessId={businessId} />
+            )}
+          </div>
         </div>
       </main>
     </div>
