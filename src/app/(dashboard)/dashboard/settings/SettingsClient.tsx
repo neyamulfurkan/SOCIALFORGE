@@ -1648,9 +1648,13 @@ export function SettingsClient({
   const [activeSection, setActiveSection] = useState('branding');
   const { save, getState } = useSave(businessId);
 
-const visibleNav = isSuperAdmin
+  // Always show API Keys tab for all business owners (they can now set their own Groq keys)
+  const visibleNav = isSuperAdmin
     ? NAV_ITEMS
-    : NAV_ITEMS.filter((item) => item.id !== 'apikeys');
+    : NAV_ITEMS;
+
+  // Check if current user is a regular business owner to conditionally show API Keys section
+  const isRegularBusinessOwner = !isSuperAdmin && businessId !== null;
 
   return (
     <div className="flex min-h-screen w-full overflow-x-hidden">
@@ -1761,7 +1765,7 @@ const visibleNav = isSuperAdmin
         {activeSection === 'security' && (
           <SecuritySection businessId={businessId} />
         )}
-         {activeSection === 'apikeys' && isSuperAdmin && (
+         {activeSection === 'apikeys' && (isSuperAdmin || isRegularBusinessOwner) && (
           <ApiKeysSection businessId={businessId} />
         )}
         </div>
