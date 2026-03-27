@@ -1696,8 +1696,8 @@ export function SettingsClient({
 
       {/* Section content */}
       <main className="flex-1 w-full overflow-y-auto overflow-x-hidden">
-        <div className="px-4 py-4 md:px-6 md:py-6 max-w-2xl">
-        <div className="w-full">
+        <div className="px-4 py-4 md:px-6 md:py-6 w-full">
+        <div className="w-full max-w-3xl mx-auto">
         {activeSection === 'branding' && (
           <BrandingSection
             initial={brandingData}
