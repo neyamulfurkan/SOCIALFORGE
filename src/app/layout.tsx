@@ -16,7 +16,10 @@ export const metadata: Metadata = {
     default: 'SocialForge',
   },
   description: 'Social commerce platform for small businesses',
-  metadataBase: new URL(process.env.NEXTAUTH_URL ?? 'http://localhost:3000'),
+    metadataBase: new URL(process.env.NEXTAUTH_URL ?? 'http://localhost:3000'),
+  verification: {
+    google: 'nKkTo1ZhrMXmKetMTUPSNsFPizaSHfvOBNJoziwZv9g',
+  },
   robots: {
     index: false,
     follow: false,
