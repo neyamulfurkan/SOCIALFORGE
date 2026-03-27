@@ -183,8 +183,8 @@ function SaveButton({ state, onClick }: { state: SaveState; onClick: () => void 
 
 function SectionCard({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <div className="bg-surface border border-border rounded-lg p-6 flex flex-col gap-5">
-      <h2 className="text-base font-semibold text-text-primary">{title}</h2>
+    <div className="bg-surface border border-border rounded-lg p-4 md:p-6 flex flex-col gap-5 w-full overflow-hidden">
+      <h2 className="text-base font-semibold text-text-primary break-words">{title}</h2>
       {children}
     </div>
   );
@@ -1653,7 +1653,7 @@ const visibleNav = isSuperAdmin
     : NAV_ITEMS.filter((item) => item.id !== 'apikeys');
 
   return (
-    <div className="flex min-h-screen">
+    <div className="flex min-h-screen w-full overflow-x-hidden">
       {/* Left sub-nav */}
       <aside className="hidden lg:flex flex-col w-52 shrink-0 border-r border-border pt-6 pr-4 gap-0.5">
         {visibleNav.map((item) => (
@@ -1691,7 +1691,9 @@ const visibleNav = isSuperAdmin
       </div>
 
       {/* Section content */}
-      <main className="flex-1 px-6 py-6 max-w-2xl">
+      <main className="flex-1 w-full overflow-y-auto overflow-x-hidden">
+        <div className="px-4 py-4 md:px-6 md:py-6 max-w-2xl">
+        <div className="w-full">
         {activeSection === 'branding' && (
           <BrandingSection
             initial={brandingData}
@@ -1761,7 +1763,9 @@ const visibleNav = isSuperAdmin
         )}
          {activeSection === 'apikeys' && isSuperAdmin && (
           <ApiKeysSection businessId={businessId} />
-        )}      </main>
+        )}
+        </div>
+      </main>
     </div>
   );
 }
