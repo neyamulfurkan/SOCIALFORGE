@@ -17,6 +17,10 @@ export const metadata: Metadata = {
   },
   description: 'Social commerce platform for small businesses',
   metadataBase: new URL(process.env.NEXTAUTH_URL ?? 'http://localhost:3000'),
+  robots: {
+    index: false,
+    follow: false,
+  },
 };
 
 export default function RootLayout({

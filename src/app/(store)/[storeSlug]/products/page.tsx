@@ -37,9 +37,19 @@ export async function generateMetadata({
     where: { slug: storeSlug },
     select: { name: true, tagline: true },
   });
+  const siteUrl = process.env.NEXTAUTH_URL ?? 'http://localhost:3000';
   return {
     title: business ? `All Products — ${business.name}` : 'Products',
-    description: business?.tagline ?? undefined,
+    description: business?.tagline ?? `Browse all products from ${business?.name ?? storeSlug}.`,
+    robots: { index: true, follow: true },
+    alternates: { canonical: `${siteUrl}/${storeSlug}/products` },
+    openGraph: {
+      type: 'website',
+      url: `${siteUrl}/${storeSlug}/products`,
+      siteName: business?.name,
+      title: business ? `All Products — ${business.name}` : 'Products',
+      description: business?.tagline ?? undefined,
+    },
   };
 }
 

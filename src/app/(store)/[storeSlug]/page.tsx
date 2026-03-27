@@ -26,10 +26,27 @@ export async function generateMetadata({ params }: { params: Promise<{ storeSlug
     where: { slug: storeSlug },
     select: { name: true, tagline: true, logo: true },
   });
+  const siteUrl = process.env.NEXTAUTH_URL ?? 'http://localhost:3000';
+  const storeUrl = `${siteUrl}/${storeSlug}`;
   return {
     title: business?.name ?? storeSlug,
-    description: business?.tagline ?? undefined,
-    openGraph: { images: business?.logo ? [business.logo] : [] },
+    description: business?.tagline ?? `Shop ${business?.name ?? storeSlug} — fast delivery, secure checkout, AI-powered support.`,
+    robots: { index: true, follow: true },
+    alternates: { canonical: storeUrl },
+    openGraph: {
+      type: 'website',
+      url: storeUrl,
+      siteName: business?.name,
+      title: business?.name ?? storeSlug,
+      description: business?.tagline ?? undefined,
+      images: business?.logo ? [{ url: business.logo, width: 1200, height: 630, alt: business.name ?? storeSlug }] : [],
+    },
+    twitter: {
+      card: 'summary_large_image',
+      title: business?.name ?? storeSlug,
+      description: business?.tagline ?? undefined,
+      images: business?.logo ? [business.logo] : [],
+    },
   };
 }
 
@@ -182,6 +199,30 @@ export default async function StorePage({
 
       {/* ── Trust strip ──────────────────────────────────────────── */}
       <TrustStrip />
+
+      {/* ── JSON-LD structured data ──────────────────────────────── */}
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify({
+            '@context': 'https://schema.org',
+            '@type': 'Store',
+            name: business.name,
+            description: business.tagline ?? undefined,
+            url: `${process.env.NEXTAUTH_URL ?? 'http://localhost:3000'}/${business.slug}`,
+            logo: business.logo ?? undefined,
+            image: business.logo ?? undefined,
+            potentialAction: {
+              '@type': 'SearchAction',
+              target: {
+                '@type': 'EntryPoint',
+                urlTemplate: `${process.env.NEXTAUTH_URL ?? 'http://localhost:3000'}/${business.slug}/products?search={search_term_string}`,
+              },
+              'query-input': 'required name=search_term_string',
+            },
+          }),
+        }}
+      />
 
       {/* ── Footer ───────────────────────────────────────────────── */}
       <footer className="border-t border-store-border mt-4 py-8 px-6 text-center">

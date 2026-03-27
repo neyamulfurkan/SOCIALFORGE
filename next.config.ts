@@ -20,6 +20,10 @@ const config: NextConfig = {
       allowedOrigins: ['*'],
     },
   },
+  async redirects() {
+    return [];
+  },
+
   async headers() {
     return [
       {

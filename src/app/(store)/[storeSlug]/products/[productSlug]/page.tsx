@@ -56,13 +56,33 @@ export async function generateMetadata({
     ? buildCloudinaryUrl(product.images[0], IMAGE_TRANSFORMS.PRODUCT, 1200)
     : undefined;
 
+  const siteUrl = process.env.NEXTAUTH_URL ?? 'http://localhost:3000';
+  const productUrl = `${siteUrl}/${storeSlug}/products/${productSlug}`;
+  const priceNum = Number(product.price);
   return {
     title: `${product.name} — ${business.name}`,
-    description: product.description ?? undefined,
+    description: product.description
+      ? product.description.slice(0, 160)
+      : `Buy ${product.name} from ${business.name}. Fast delivery and secure checkout.`,
+    robots: { index: true, follow: true },
+    alternates: { canonical: productUrl },
     openGraph: {
-      title: product.name,
+      type: 'website',
+      url: productUrl,
+      siteName: business.name,
+      title: `${product.name} — ${business.name}`,
+      description: product.description ?? undefined,
+      images: imageUrl ? [{ url: imageUrl, width: 1200, height: 900, alt: product.name }] : [],
+    },
+    twitter: {
+      card: 'summary_large_image',
+      title: `${product.name} — ${business.name}`,
       description: product.description ?? undefined,
       images: imageUrl ? [imageUrl] : [],
+    },
+    other: {
+      'product:price:amount': String(priceNum),
+      'product:price:currency': 'BDT',
     },
   };
 }
@@ -326,6 +346,40 @@ export default async function ProductPage({
             )}
           </div>
         </div>
+
+        {/* JSON-LD Product structured data */}
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify({
+              '@context': 'https://schema.org',
+              '@type': 'Product',
+              name: product.name,
+              description: product.description ?? undefined,
+              image: product.images.map((img) =>
+                buildCloudinaryUrl(img, IMAGE_TRANSFORMS.PRODUCT, 800)
+              ),
+              sku: product.id,
+              brand: {
+                '@type': 'Brand',
+                name: business.name,
+              },
+              offers: {
+                '@type': 'Offer',
+                url: `${process.env.NEXTAUTH_URL ?? 'http://localhost:3000'}/${storeSlug}/products/${productSlug}`,
+                priceCurrency: 'BDT',
+                price: price,
+                availability: outOfStock
+                  ? 'https://schema.org/OutOfStock'
+                  : 'https://schema.org/InStock',
+                seller: {
+                  '@type': 'Organization',
+                  name: business.name,
+                },
+              },
+            }),
+          }}
+        />
 
         {/* Related products */}
         {related.length > 0 && (

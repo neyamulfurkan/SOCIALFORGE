@@ -1,8 +1,43 @@
 import React from 'react';
+import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { prisma } from '@/lib/db';
 import StoreShell from '@/components/store/StoreShell';
 import type { StoreConfig } from '@/lib/types';
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ storeSlug: string }>;
+}): Promise<Metadata> {
+  const { storeSlug } = await params;
+  const business = await prisma.business.findFirst({
+    where: { OR: [{ slug: storeSlug }, { domain: storeSlug }], status: 'ACTIVE' },
+    select: { name: true, tagline: true, logo: true, slug: true, domain: true },
+  });
+  if (!business) return {};
+  const siteUrl = process.env.NEXTAUTH_URL ?? 'http://localhost:3000';
+  const storeUrl = business.domain
+    ? `https://${business.domain}`
+    : `${siteUrl}/${business.slug}`;
+  return {
+    metadataBase: new URL(siteUrl),
+    robots: { index: true, follow: true },
+    alternates: {
+      canonical: storeUrl,
+    },
+    openGraph: {
+      type: 'website',
+      url: storeUrl,
+      siteName: business.name,
+      images: business.logo ? [{ url: business.logo, alt: business.name }] : [],
+    },
+    twitter: {
+      card: 'summary_large_image',
+      images: business.logo ? [business.logo] : [],
+    },
+  };
+}
 
 export async function generateStaticParams(): Promise<Array<{ storeSlug: string }>> {
   const businesses = await prisma.business.findMany({
